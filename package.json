@@ -1,0 +1,41 @@
+{
+  "name": "@hinto/a11y-engine",
+  "version": "0.4.0",
+  "description": "Motore di audit di accessibilita per ecosistemi digitali multi-sito. WCAG 2.1 AA / EN 301 549.",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "crawl": "tsx src/cli/index.ts crawl",
+    "scan": "tsx src/cli/index.ts scan",
+    "report": "tsx src/cli/index.ts report",
+    "audit": "tsx src/cli/index.ts audit",
+    "test": "tsx test/triage-cap.test.mts",
+    "verify": "node scripts/verify.mjs",
+    "fixtures": "node fixtures/build.mjs && node fixtures/build-react.mjs",
+    "replay": "tsx src/cli/index.ts replay",
+    "griglia": "node scripts/griglia-confronto.mjs",
+    "studio": "tsx src/studio/server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "axe-core": "^4.13.0",
+    "commander": "^15.0.0",
+    "exceljs": "^4.4.0",
+    "p-limit": "^7.3.2",
+    "playwright": "^1.63.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  },
+  "type": "module",
+  "bin": {
+    "a11y": "./dist/cli/index.js"
+  },
+  "private": true
+}

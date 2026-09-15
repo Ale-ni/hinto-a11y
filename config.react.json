@@ -1,0 +1,33 @@
+{
+  "project": "App React di prova — verifica identità stabile",
+  "outDir": "out-react",
+  "sites": [
+    {
+      "id": "app",
+      "label": "App React",
+      "baseUrl": "http://localhost:8098",
+      "tier": "primary",
+      "exclude": []
+    }
+  ],
+  "crawl": {
+    "maxPagesPerSite": 200,
+    "maxDepth": 3,
+    "concurrency": 6,
+    "politenessDelayMs": 0,
+    "probesPerGroup": 2,
+    "samplesPerTemplate": 2
+  },
+  "scan": {
+    "concurrency": 3,
+    "screenshots": false,
+    "maxTabs": 40
+  },
+  "triage": {
+    "adapter": "none"
+  },
+  "consent": {
+    "containerSelector": "#consent-root",
+    "acceptSelector": "#consent-root div[role=\"button\"]"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "project": "Nome del cliente — Audit di accessibilità",
+  "standard": "WCAG 2.1 AA / EN 301 549 v3.2.1",
+  "outDir": "out",
+
+  "sites": [
+    {
+      "id": "main",
+      "label": "Portale istituzionale",
+      "baseUrl": "https://www.esempio.it",
+      "tier": "primary",
+      "exclude": ["/archivio/", "\\?page=", "\\.pdf$"]
+    },
+    {
+      "id": "dipartimento-x",
+      "label": "Dipartimento X",
+      "baseUrl": "https://www.dx.esempio.it",
+      "tier": "secondary",
+      "exclude": []
+    }
+  ],
+
+  "crawl": {
+    "maxPagesPerSite": 800,
+    "maxDepth": 3,
+    "concurrency": 4,
+    "politenessDelayMs": 150,
+    "probesPerGroup": 2,
+    "samplesPerTemplate": 3
+  },
+
+  "scan": {
+    "concurrency": 3,
+    "screenshots": true,
+    "maxTabs": 60,
+    "includeForward": true
+  },
+
+  "triage": {
+    "adapter": "manual",
+    "model": "claude-sonnet-4-6",
+    "findingsPerPack": 12,
+    "promptPath": "prompts/triage.it.md"
+  }
+}

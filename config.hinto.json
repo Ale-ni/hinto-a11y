@@ -1,0 +1,41 @@
+{
+  "project": "Hinto Group — prima scansione reale",
+  "standard": "WCAG 2.1 AA / EN 301 549 v3.2.1",
+  "outDir": "out-hinto",
+  "sites": [
+    {
+      "id": "hinto",
+      "label": "hintogroup.eu",
+      "baseUrl": "https://www.hintogroup.eu",
+      "tier": "primary",
+      "exclude": [
+        "\\.pdf$",
+        "/wp-admin",
+        "/wp-json",
+        "\\?",
+        "/feed"
+      ]
+    }
+  ],
+  "crawl": {
+    "maxPagesPerSite": 150,
+    "maxDepth": 2,
+    "concurrency": 2,
+    "politenessDelayMs": 400,
+    "probesPerGroup": 2,
+    "samplesPerTemplate": 2
+  },
+  "scan": {
+    "concurrency": 2,
+    "screenshots": true,
+    "maxTabs": 60,
+    "includeForward": true
+  },
+  "triage": {
+    "adapter": "none"
+  },
+  "consent": {
+    "containerSelector": "#cookiebanner",
+    "_nota": "acceptSelector va compilato con il selettore che la scansione propone in diagnostica, oppure si usa 'a11y consent-setup config.hinto.json'"
+  }
+}

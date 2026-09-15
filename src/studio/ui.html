@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio accessibilità — Hinto</title>
+<!--
+  Questa interfaccia e' lo strumento con cui si conducono audit di
+  accessibilita'. Se non fosse essa stessa accessibile sarebbe una barzelletta,
+  quindi: struttura con landmark veri, schede navigabili da tastiera secondo il
+  pattern ARIA, stati di focus sempre visibili, contrasti sopra 4.5:1, nessuna
+  informazione affidata al solo colore, e annunci misurati - il registro scorre
+  veloce e non va letto ad alta voce riga per riga, mentre l'avanzamento si'.
+-->
+<style>
+  :root {
+    --inchiostro: #16191d;
+    --tenue: #5b6470;
+    --linea: #dfe3e8;
+    --fondo: #f7f8fa;
+    --carta: #ffffff;
+    --accento: #14532d;
+    --accento-chiaro: #e7f3ec;
+    --critica: #96261c;
+    --alta: #9a5b00;
+    --media: #1d4ed8;
+    --bassa: #56606e;
+    --raggio: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    color: var(--inchiostro);
+    background: var(--fondo);
+  }
+  .salta {
+    position: absolute; left: -9999px; top: 0; padding: 10px 16px; z-index: 10;
+    background: var(--accento); color: #fff; border-radius: 0 0 var(--raggio) 0;
+  }
+  .salta:focus { left: 0; }
+  :focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+
+  header.testata {
+    background: var(--carta); border-bottom: 1px solid var(--linea);
+    padding: 14px 22px; display: flex; gap: 20px; align-items: baseline; flex-wrap: wrap;
+  }
+  .marchio { font-size: 17px; font-weight: 700; margin: 0; }
+  .marchio span { font-weight: 400; color: var(--tenue); }
+  .progetto-attivo { margin-left: auto; font-size: 14px; color: var(--tenue); }
+  .progetto-attivo strong { color: var(--inchiostro); }
+
+  [role="tablist"] {
+    display: flex; gap: 4px; padding: 0 22px; background: var(--carta);
+    border-bottom: 1px solid var(--linea); overflow-x: auto;
+  }
+  [role="tab"] {
+    appearance: none; background: none; border: 0; border-bottom: 3px solid transparent;
+    padding: 12px 16px; font: inherit; font-weight: 600; color: var(--tenue);
+    cursor: pointer; white-space: nowrap;
+  }
+  [role="tab"][aria-selected="true"] { color: var(--accento); border-bottom-color: var(--accento); }
+  [role="tab"]:disabled { opacity: .45; cursor: not-allowed; }
+  [role="tab"] .num {
+    display: inline-block; min-width: 20px; margin-right: 6px; padding: 0 5px;
+    border-radius: 10px; background: var(--fondo); font-size: 12px; color: var(--tenue);
+  }
+  [role="tab"][aria-selected="true"] .num { background: var(--accento-chiaro); color: var(--accento); }
+
+  main { max-width: 1060px; margin: 0 auto; padding: 26px 22px 80px; }
+  [role="tabpanel"][hidden] { display: none; }
+  h2 { font-size: 21px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 26px 0 8px; }
+  .guida { color: var(--tenue); margin: 0 0 22px; max-width: 68ch; }
+
+  .carta {
+    background: var(--carta); border: 1px solid var(--linea);
+    border-radius: var(--raggio); padding: 20px; margin-bottom: 16px;
+  }
+  .griglia { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+
+  label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
+  .aiuto { font-weight: 400; color: var(--tenue); font-size: 13px; display: block; margin-top: 2px; }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 9px 11px; font: inherit;
+    border: 1px solid #9aa3ae; border-radius: 7px; background: #fff; color: var(--inchiostro);
+  }
+  textarea { min-height: 76px; resize: vertical; }
+
+  button {
+    appearance: none; font: inherit; font-weight: 600; cursor: pointer;
+    border-radius: 8px; padding: 10px 18px; border: 1px solid transparent;
+  }
+  .primario { background: var(--accento); color: #fff; }
+  .primario:hover:not(:disabled) { background: #0e3d21; }
+  .secondario { background: #fff; color: var(--inchiostro); border-color: #9aa3ae; }
+  .secondario:hover:not(:disabled) { background: var(--fondo); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .azioni { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+
+  ul.elenco { list-style: none; margin: 0; padding: 0; }
+  ul.elenco li {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    padding: 13px 0; border-bottom: 1px solid var(--linea);
+  }
+  ul.elenco li:last-child { border-bottom: 0; }
+  .nome-progetto { font-weight: 700; }
+  .url-progetto { color: var(--tenue); font-size: 13.5px; }
+  .a-destra { margin-left: auto; display: flex; gap: 8px; }
+
+  .stato { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; }
+  .pallino { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; }
+
+  progress { width: 100%; height: 12px; }
+  #registro {
+    background: #10141a; color: #dfe5ee; border-radius: 8px; padding: 14px 16px;
+    font: 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    max-height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  #registro:empty::after { content: "Nessuna analisi avviata."; color: #8b95a4; }
+
+  .avviso {
+    border-left: 4px solid var(--alta); background: #fdf6e9;
+    padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0;
+  }
+  .avviso.grave { border-left-color: var(--critica); background: #fdefed; }
+  .avviso.ok { border-left-color: var(--accento); background: var(--accento-chiaro); }
+  .avviso h4 { margin: 0 0 4px; font-size: 14.5px; }
+  .avviso p, .avviso ul { margin: 4px 0 0; font-size: 14px; }
+
+  .numeri { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .numero { background: var(--carta); border: 1px solid var(--linea); border-radius: var(--raggio); padding: 14px 16px; }
+  .numero b { display: block; font-size: 25px; line-height: 1.2; }
+  .numero span { color: var(--tenue); font-size: 13px; }
+
+  .banda { font-weight: 700; }
+  .banda-critica { color: var(--critica); }
+  .banda-alta { color: var(--alta); }
+  .banda-media { color: var(--media); }
+  .banda-bassa { color: var(--bassa); }
+
+  .scheda-revisione { display: grid; gap: 22px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .scheda-revisione { grid-template-columns: 1.15fr .85fr; } }
+  .scheda-revisione img {
+    max-width: 100%; border: 1px solid var(--linea); border-radius: 8px; background: #fff;
+  }
+  .meta { list-style: none; margin: 14px 0 0; padding: 0; font-size: 13.5px; }
+  .meta li { padding: 5px 0; border-bottom: 1px solid var(--linea); display: flex; gap: 10px; }
+  .meta li span:first-child { color: var(--tenue); min-width: 120px; }
+  code { font: 12.5px ui-monospace, Menlo, monospace; background: var(--fondo); padding: 1px 5px; border-radius: 4px; }
+  .scelte { display: grid; gap: 9px; margin-top: 8px; }
+  .scelte button { text-align: left; display: block; width: 100%; }
+  .vuoto { color: var(--tenue); font-style: italic; }
+  a { color: #14532d; }
+</style>
+</head>
+<body>
+<a class="salta" href="#principale">Vai al contenuto</a>
+
+<header class="testata">
+  <p class="marchio">Studio accessibilità <span>· Hinto</span></p>
+  <p class="progetto-attivo" id="progetto-attivo"></p>
+</header>
+
+<nav aria-label="Fasi del lavoro">
+  <div role="tablist" aria-label="Fasi del lavoro">
+    <button role="tab" id="t-progetti" aria-controls="p-progetti" aria-selected="true"><span class="num">1</span>Progetti</button>
+    <button role="tab" id="t-analisi" aria-controls="p-analisi" aria-selected="false" tabindex="-1"><span class="num">2</span>Analisi</button>
+    <button role="tab" id="t-revisione" aria-controls="p-revisione" aria-selected="false" tabindex="-1"><span class="num">3</span>Revisione</button>
+    <button role="tab" id="t-risultati" aria-controls="p-risultati" aria-selected="false" tabindex="-1"><span class="num">4</span>Risultati</button>
+  </div>
+</nav>
+
+<main id="principale">
+
+  <!-- ============ 1 · Progetti ============ -->
+  <section role="tabpanel" id="p-progetti" aria-labelledby="t-progetti" tabindex="0">
+    <h2>Progetti</h2>
+    <p class="guida">Un progetto è un cliente e il suo sito. Si crea una volta e si riusa a ogni analisi.</p>
+
+    <div class="carta">
+      <h3 style="margin-top:0">Progetti esistenti</h3>
+      <ul class="elenco" id="elenco-progetti"><li class="vuoto">Caricamento…</li></ul>
+    </div>
+
+    <div class="carta">
+      <h3 style="margin-top:0">Nuovo progetto</h3>
+      <form id="form-progetto">
+        <div class="griglia">
+          <div>
+            <label for="np-nome">Nome del cliente
+              <span class="aiuto">Compare nei documenti consegnati.</span>
+            </label>
+            <input type="text" id="np-nome" name="nome" required autocomplete="off">
+          </div>
+          <div>
+            <label for="np-url">Indirizzo del sito
+              <span class="aiuto">Per esempio www.univr.it</span>
+            </label>
+            <input type="text" id="np-url" name="baseUrl" required autocomplete="off" inputmode="url">
+          </div>
+          <div>
+            <label for="np-max">Pagine da esplorare al massimo
+              <span class="aiuto">800 va bene quasi sempre. Non è il numero di pagine scansionate: quelle sono molte meno.</span>
+            </label>
+            <input type="number" id="np-max" name="maxPagine" value="800" min="20" max="5000" step="20">
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <label for="np-escludi">Parti di sito da escludere
+            <span class="aiuto">Una per riga. Servono a saltare aree riservate o infinite: per esempio <code>/archivio/</code> oppure <code>\?page=</code>. Si può lasciare vuoto.</span>
+          </label>
+          <textarea id="np-escludi" name="escludi"></textarea>
+        </div>
+        <div class="azioni">
+          <button type="submit" class="primario">Crea progetto</button>
+          <span id="esito-progetto" role="status"></span>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ 2 · Analisi ============ -->
+  <section role="tabpanel" id="p-analisi" aria-labelledby="t-analisi" tabindex="0" hidden>
+    <h2>Analisi</h2>
+    <p class="guida">
+      Il giro di prova percorre le stesse strade dell’analisi completa su poche pagine. Serve a sapere in
+      qualche minuto se qualcosa non va, invece di scoprirlo dopo mezz’ora.
+    </p>
+
+    <div class="carta">
+      <div class="azioni" style="margin-top:0">
+        <button type="button" class="secondario" data-modo="prova">Giro di prova</button>
+        <button type="button" class="primario" data-modo="completa">Analisi completa</button>
+        <button type="button" class="secondario" data-modo="riprendi">Riprendi l’ultima</button>
+        <button type="button" class="secondario" id="btn-ferma" disabled>Interrompi</button>
+      </div>
+      <p class="guida" style="margin:16px 0 0">
+        Se il sito mostra un banner dei cookie che l’analisi non riesce a chiudere, il registro lo dice.
+        In quel caso:
+        <button type="button" class="secondario" data-modo="consenso" style="padding:5px 12px">Accetta il banner a mano</button>
+        apre una finestra del browser: si accetta una volta e le analisi successive non lo rivedono.
+      </p>
+    </div>
+
+    <div class="carta">
+      <p class="stato" id="stato-lavoro" role="status"><span class="pallino"></span>In attesa</p>
+      <progress id="avanzamento" value="0" max="100" aria-labelledby="stato-lavoro"></progress>
+      <h3 id="tit-registro">Registro</h3>
+      <div id="registro" role="region" aria-labelledby="tit-registro" tabindex="0"></div>
+    </div>
+  </section>
+
+  <!-- ============ 3 · Revisione ============ -->
+  <section role="tabpanel" id="p-revisione" aria-labelledby="t-revisione" tabindex="0" hidden>
+    <h2>Revisione</h2>
+    <p class="guida">
+      Qui ci sono i problemi che il motore <strong>non può decidere da solo</strong>. Non è un ripiego: per una
+      parte dei criteri WCAG nessuno strumento automatico può emettere un verdetto, e fingere il contrario
+      significa consegnare un rapporto sbagliato. Guarda e decidi tu: uno alla volta, dal più grave.
+    </p>
+    <div id="area-revisione"></div>
+  </section>
+
+  <!-- ============ 4 · Risultati ============ -->
+  <section role="tabpanel" id="p-risultati" aria-labelledby="t-risultati" tabindex="0" hidden>
+    <h2>Risultati</h2>
+    <p class="guida">Quello che il motore ha prodotto per il progetto selezionato.</p>
+    <div id="area-risultati"></div>
+  </section>
+
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const stato = { progetti: [], attivo: null, coda: [], indice: 0, inCorso: false };
+  const $ = (s) => document.querySelector(s);
+  const testo = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ---------------- schede, secondo il pattern ARIA ---------------- */
+  const schede = [...document.querySelectorAll('[role="tab"]')];
+  function apri(id) {
+    schede.forEach((t) => {
+      const scelta = t.id === id;
+      t.setAttribute('aria-selected', String(scelta));
+      t.tabIndex = scelta ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !scelta;
+    });
+    if (id === 't-revisione') caricaRevisione();
+    if (id === 't-risultati') caricaRisultati();
+  }
+  schede.forEach((t) => {
+    t.addEventListener('click', () => { apri(t.id); t.focus(); });
+    t.addEventListener('keydown', (e) => {
+      const i = schede.indexOf(t);
+      const salto = { ArrowRight: 1, ArrowLeft: -1, Home: -99, End: 99 }[e.key];
+      if (salto === undefined) return;
+      e.preventDefault();
+      const n = salto === -99 ? 0 : salto === 99 ? schede.length - 1
+        : (i + salto + schede.length) % schede.length;
+      apri(schede[n].id);
+      schede[n].focus();
+    });
+  });
+
+  /* ---------------- progetti ---------------- */
+  async function caricaProgetti() {
+    const r = await fetch('/api/progetti').then((x) => x.json());
+    stato.progetti = r.progetti;
+    const ul = $('#elenco-progetti');
+    if (!r.progetti.length) {
+      ul.innerHTML = '<li class="vuoto">Nessun progetto. Creane uno qui sotto.</li>';
+      return;
+    }
+    ul.innerHTML = r.progetti.map((p) => `
+      <li>
+        <span>
+          <span class="nome-progetto">${testo(p.nome)}</span><br>
+          <span class="url-progetto">${testo(p.siti.map((s) => s.baseUrl).join(' · '))}</span>
+        </span>
+        <span class="a-destra">
+          ${p.esisteRisultato ? '<span class="stato" style="color:#14532d"><span class="pallino"></span>ha risultati</span>' : ''}
+          <button type="button" class="${stato.attivo?.file === p.file ? 'primario' : 'secondario'}"
+                  data-scegli="${testo(p.file)}">
+            ${stato.attivo?.file === p.file ? 'Selezionato' : 'Seleziona'}
+          </button>
+        </span>
+      </li>`).join('');
+    ul.querySelectorAll('[data-scegli]').forEach((b) =>
+      b.addEventListener('click', () => scegli(b.dataset.scegli)));
+    if (!stato.attivo && r.progetti.length === 1) scegli(r.progetti[0].file);
+  }
+
+  function scegli(file) {
+    stato.attivo = stato.progetti.find((p) => p.file === file) ?? null;
+    $('#progetto-attivo').innerHTML = stato.attivo
+      ? `Progetto: <strong>${testo(stato.attivo.nome)}</strong>`
+      : '';
+    caricaProgetti();
+  }
+
+  $('#form-progetto').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const dati = Object.fromEntries(new FormData(e.target).entries());
+    const r = await fetch('/api/progetto', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(dati),
+    }).then((x) => x.json());
+    const esito = $('#esito-progetto');
+    if (r.errore) { esito.textContent = r.errore; esito.style.color = 'var(--critica)'; return; }
+    esito.textContent = `Progetto "${r.progetto}" creato e selezionato.`;
+    esito.style.color = 'var(--accento)';
+    e.target.reset();
+    $('#np-max').value = 800;
+    await caricaProgetti();
+    scegli(r.file);
+  });
+
+  /* ---------------- esecuzione ---------------- */
+  function segnalaStato(etichetta, colore, inCorso) {
+    stato.inCorso = inCorso;
+    const el = $('#stato-lavoro');
+    el.innerHTML = `<span class="pallino"></span>${testo(etichetta)}`;
+    el.style.color = colore;
+    $('#btn-ferma').disabled = !inCorso;
+    document.querySelectorAll('[data-modo]').forEach((b) => (b.disabled = inCorso));
+  }
+
+  document.querySelectorAll('[data-modo]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      if (!stato.attivo) { apri('t-progetti'); $('#elenco-progetti').focus?.(); return; }
+      const r = await fetch('/api/avvia', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ configFile: stato.attivo.file, modo: b.dataset.modo }),
+      }).then((x) => x.json());
+      if (r.errore) { segnalaStato(r.errore, 'var(--critica)', false); return; }
+      $('#registro').textContent = '';
+      apri('t-analisi');
+      segnalaStato(`${r.comando} in corso…`, 'var(--media)', true);
+    }));
+
+  $('#btn-ferma').addEventListener('click', () =>
+    fetch('/api/ferma', { method: 'POST' }));
+
+  /**
+   * Il registro NON e' un'area annunciata: scorre troppo in fretta e un lettore
+   * di schermo lo leggerebbe riga per riga rendendo la pagina inutilizzabile.
+   * L'avanzamento sintetico, invece, e' annunciato: e' l'informazione che serve.
+   */
+  const flusso = new EventSource('/api/eventi');
+  flusso.addEventListener('riga', (e) => {
+    const d = JSON.parse(e.data);
+    const reg = $('#registro');
+    const inFondo = reg.scrollTop + reg.clientHeight >= reg.scrollHeight - 30;
+    reg.textContent += d.testo + '\n';
+    if (inFondo) reg.scrollTop = reg.scrollHeight;
+    if (d.totali) {
+      const pr = $('#avanzamento');
+      pr.max = d.totali; pr.value = d.fatte;
+      segnalaStato(`Scansione: ${d.fatte} di ${d.totali} pagine`, 'var(--media)', true);
+    }
+  });
+  flusso.addEventListener('inizio', (e) =>
+    segnalaStato(`${JSON.parse(e.data).comando} in corso…`, 'var(--media)', true));
+  flusso.addEventListener('fine', (e) => {
+    const d = JSON.parse(e.data);
+    const etichette = {
+      completato: 'Completata', interrotto: 'Interrotta',
+      errore: 'Terminata con un errore: guarda le ultime righe del registro',
+    };
+    segnalaStato(etichette[d.stato] ?? d.stato,
+      d.stato === 'completato' ? 'var(--accento)' : 'var(--critica)', false);
+    $('#avanzamento').value = $('#avanzamento').max;
+    caricaProgetti();
+  });
+
+  /* ---------------- revisione ---------------- */
+  async function caricaRevisione() {
+    const area = $('#area-revisione');
+    if (!stato.attivo) { area.innerHTML = '<p class="vuoto">Seleziona prima un progetto.</p>'; return; }
+    const r = await fetch(`/api/revisione?outDir=${encodeURIComponent(stato.attivo.outDir)}`)
+      .then((x) => x.json());
+    stato.coda = r.coda.filter((x) => !x.revisione);
+    stato.indice = 0;
+    mostraRevisione();
+  }
+
+  function mostraRevisione() {
+    const area = $('#area-revisione');
+    if (!stato.coda.length) {
+      area.innerHTML = `<div class="avviso ok"><h4>Niente da rivedere</h4>
+        <p>O l’analisi non è ancora stata eseguita, oppure hai già deciso su tutti i punti aperti.</p></div>`;
+      return;
+    }
+    const x = stato.coda[stato.indice];
+    const foto = x.screenshot && !x.screenshotMancante
+      ? `<img src="/file/${encodeURI(x.screenshot)}?base=${encodeURIComponent(stato.attivo.outDir)}"
+              alt="Schermata dell’elemento interessato: ${testo(x.titolo)}">`
+      : x.screenshotMancante
+        ? `<div class="avviso"><h4>Immagine non trovata</h4>
+             <p>L’analisi l’aveva catturata, ma il file non c’è più: la cartella dei risultati
+             è stata spostata o svuotata. Apri una delle pagine qui sotto e guarda dal vivo.</p></div>`
+        : `<p class="vuoto">Nessuna immagine per questo punto — succede per i difetti che in un fermo
+             immagine non si vedono (contrasto al passaggio, ordine di tabulazione, reflow).
+             Apri una delle pagine elencate e guardalo dal vivo.</p>`;
+
+    area.innerHTML = `
+      <p class="guida" role="status">Punto ${stato.indice + 1} di ${stato.coda.length} · ordinati dal più grave</p>
+      <div class="carta">
+        <h3 style="margin-top:0">${testo(x.titolo)}
+          <span class="banda banda-${testo(x.banda)}" style="font-size:14px"> · ${testo(x.banda)}</span>
+        </h3>
+        <div class="scheda-revisione">
+          <div>
+            <p>${testo(x.descrizione)}</p>
+            ${foto}
+            <ul class="meta">
+              <li><span>Componente</span><span><code>${testo(x.componente)}</code></span></li>
+              <li><span>Criteri WCAG</span><span>${testo(x.criteri.join(', ') || '—')}</span></li>
+              <li><span>Occorrenze stimate</span><span>${x.occorrenze}</span></li>
+              <li><span>Pagine di esempio</span><span>${x.pagine.map((p) =>
+                `<a href="${testo(p)}" target="_blank" rel="noopener">${testo(p.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</span></li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="margin-top:0">La tua decisione</h4>
+            <p style="font-size:14px;color:var(--tenue)">Guarda la pagina e scegli. Se non è decidibile senza provare con una tecnologia assistiva, dillo: è una risposta valida.</p>
+            <div class="scelte">
+              <button type="button" class="primario" data-esito="non-conforme">È un problema reale<br><span style="font-weight:400;font-size:13px">Finisce nel rapporto come non conformità</span></button>
+              <button type="button" class="secondario" data-esito="conforme">Non è un problema<br><span style="font-weight:400;font-size:13px">Il criterio è rispettato: esce dal rapporto</span></button>
+              <button type="button" class="secondario" data-esito="irrilevante">Vero ma irrilevante<br><span style="font-weight:400;font-size:13px">Non lo metteresti davanti al cliente</span></button>
+              <button type="button" class="secondario" data-esito="da-approfondire">Serve una prova più approfondita<br><span style="font-weight:400;font-size:13px">Screen reader, o accesso al codice</span></button>
+            </div>
+            <div style="margin-top:14px">
+              <label for="rev-nota">Nota <span class="aiuto">Facoltativa. Finisce nel rapporto accanto al problema.</span></label>
+              <textarea id="rev-nota"></textarea>
+            </div>
+            <div class="azioni">
+              <button type="button" class="secondario" id="rev-salta">Decido dopo</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    area.querySelectorAll('[data-esito]').forEach((b) =>
+      b.addEventListener('click', () => decidi(x.id, b.dataset.esito)));
+    $('#rev-salta').addEventListener('click', () => {
+      stato.indice = (stato.indice + 1) % stato.coda.length;
+      mostraRevisione();
+      area.querySelector('h3')?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  async function decidi(id, esito) {
+    await fetch('/api/revisione', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        outDir: stato.attivo.outDir, id, esito,
+        nota: $('#rev-nota')?.value ?? '', revisore: '',
+      }),
+    });
+    stato.coda.splice(stato.indice, 1);
+    if (stato.indice >= stato.coda.length) stato.indice = 0;
+    mostraRevisione();
+    document.querySelector('#area-revisione h3, #area-revisione h4')?.focus?.();
+  }
+
+  /* ---------------- risultati ---------------- */
+  async function caricaRisultati() {
+    const area = $('#area-risultati');
+    if (!stato.attivo) { area.innerHTML = '<p class="vuoto">Seleziona prima un progetto.</p>'; return; }
+    const r = await fetch(`/api/risultati?outDir=${encodeURIComponent(stato.attivo.outDir)}`)
+      .then((x) => x.json());
+    if (!r.presente) {
+      area.innerHTML = '<p class="vuoto">Nessuna analisi eseguita per questo progetto.</p>';
+      return;
+    }
+
+    const bloccanti = (r.qualita?.issues ?? []).filter((i) => i.severity === 'bloccante');
+    const attenzioni = (r.qualita?.issues ?? []).filter((i) => i.severity === 'attenzione');
+    const diagnosi = bloccanti.length
+      ? `<div class="avviso grave"><h4>I risultati non sono pronti per il cliente</h4>
+          <ul>${bloccanti.map((i) => `<li>${testo(i.message)}</li>`).join('')}</ul>
+          <p>Il motore ha riconosciuto un difetto nella <em>propria</em> analisi. Segnalalo prima di costruire il documento.</p></div>`
+      : `<div class="avviso ok"><h4>L’analisi si è autodiagnosticata sana</h4>
+          <p>Nessuna anomalia bloccante.${attenzioni.length ? ` ${attenzioni.length} segnalazione/i minore/i qui sotto.` : ''}</p></div>`;
+
+    const bande = ['critica', 'alta', 'media', 'bassa']
+      .filter((b) => r.perBanda[b])
+      .map((b) => `<li><span class="banda banda-${b}">${b}</span><span>${r.perBanda[b]}</span></li>`).join('');
+
+    area.innerHTML = `
+      ${diagnosi}
+      <div class="numeri">
+        <div class="numero"><b>${r.stats.findingsAfterDedupe}</b><span>problemi distinti</span></div>
+        <div class="numero"><b>${r.stats.pagesScanned}</b><span>pagine analizzate su ${r.stats.pagesDiscovered} scoperte</span></div>
+        <div class="numero"><b>${r.stats.templatesFound}</b><span>template riconosciuti</span></div>
+        <div class="numero"><b>${r.stats.dedupeRatio}×</b><span>compressione</span></div>
+        <div class="numero"><b>${r.daRivedere}</b><span>da rivedere a mano</span></div>
+        <div class="numero"><b>${r.riviste}</b><span>già decisi da te</span></div>
+      </div>
+
+      <h3>Documenti</h3>
+      <div class="carta">
+        <ul class="elenco">
+          <li><span><strong>Dashboard</strong><br><span class="url-progetto">Da leggere a schermo, con le evidenze visive</span></span>
+            <span class="a-destra">${r.haDashboard
+              ? `<a href="/file/${encodeURI(r.dashboard)}" target="_blank" rel="noopener"><button type="button" class="primario">Apri</button></a>`
+              : '<span class="vuoto">non ancora generata</span>'}</span></li>
+          <li><span><strong>Backlog Excel</strong><br><span class="url-progetto">Prioritizzato, da passare a chi corregge</span></span>
+            <span class="a-destra">${r.haBacklog
+              ? `<a href="/file/${encodeURI(r.backlog)}" download><button type="button" class="secondario">Scarica</button></a>`
+              : '<span class="vuoto">non ancora generato</span>'}</span></li>
+        </ul>
+      </div>
+
+      <h3>Distribuzione</h3>
+      <div class="carta">
+        <ul class="elenco">${bande}</ul>
+        <p class="url-progetto" style="margin-top:12px">
+          Motore versione ${testo(r.versione)} · ${testo(r.standard)} ·
+          analisi del ${new Date(r.quando).toLocaleString('it-IT')}
+        </p>
+      </div>
+
+      ${attenzioni.length ? `<h3>Segnalazioni minori sull’analisi</h3>
+        <div class="carta"><ul>${attenzioni.map((i) => `<li>${testo(i.message)}</li>`).join('')}</ul></div>` : ''}`;
+  }
+
+  /* ---------------- avvio ---------------- */
+  caricaProgetti();
+  fetch('/api/lavoro').then((x) => x.json()).then((r) => {
+    if (!r.lavoro) return;
+    $('#registro').textContent = r.lavoro.righe.join('\n') + '\n';
+    if (r.lavoro.totali) {
+      $('#avanzamento').max = r.lavoro.totali;
+      $('#avanzamento').value = r.lavoro.fatte;
+    }
+    segnalaStato(
+      r.lavoro.stato === 'in-corso' ? `${r.lavoro.comando} in corso…` : `${r.lavoro.comando}: ${r.lavoro.stato}`,
+      r.lavoro.stato === 'in-corso' ? 'var(--media)' : 'var(--tenue)',
+      r.lavoro.stato === 'in-corso');
+  });
+})();
+</script>
+</body>
+</html>

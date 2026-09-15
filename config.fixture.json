@@ -1,0 +1,33 @@
+{
+  "project": "Ateneo di prova — verifica del motore",
+  "standard": "WCAG 2.1 AA / EN 301 549 v3.2.1",
+  "outDir": "out",
+  "sites": [
+    {
+      "id": "main",
+      "label": "Portale istituzionale",
+      "baseUrl": "http://localhost:8099",
+      "tier": "primary",
+      "exclude": [
+        "\\.pdf$"
+      ]
+    }
+  ],
+  "crawl": {
+    "maxPagesPerSite": 200,
+    "maxDepth": 3,
+    "concurrency": 6,
+    "politenessDelayMs": 0,
+    "probesPerGroup": 2,
+    "samplesPerTemplate": 2
+  },
+  "scan": {
+    "concurrency": 3,
+    "screenshots": true,
+    "maxTabs": 40,
+    "includeForward": true
+  },
+  "triage": {
+    "adapter": "manual"
+  }
+}
