@@ -23,3 +23,15 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Suite di regressione
         run: npm run verify
+      - name: Risultati delle scansioni
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risultati-scansioni
+          path: |
+            out/run.json
+            out/dashboard.html
+            out-react/run.json
+            out-react/dashboard.html
+          retention-days: 14
+          if-no-files-found: ignore
