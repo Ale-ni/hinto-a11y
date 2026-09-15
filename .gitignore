@@ -1,0 +1,26 @@
+node_modules/
+dist/
+
+# risultati delle scansioni: non vanno in repo (contengono URL, screenshot
+# e a volte contenuti dei clienti)
+out/
+out-*/
+
+# siti di prova: si rigenerano con `npm run fixtures`
+fixtures/site/
+fixtures/site-react/
+
+# stato del browser salvato da consent-setup: contiene cookie di sessione
+consent-state.json
+*.log
+.DS_Store
+
+# griglie di confronto generate: contengono i finding di un cliente
+# (lo script che le produce sta in scripts/, quello sì va versionato)
+confronto/*.xlsx
+
+# avanzamento di una scansione interrotta
+*.jsonl
+
+# cartella d'appoggio per il caricamento manuale su GitHub: si cancella dopo l'uso
+_per-github/
