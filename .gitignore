@@ -24,3 +24,6 @@ confronto/*.xlsx
 
 # cartella d'appoggio per il caricamento manuale su GitHub: si cancella dopo l'uso
 _per-github/
+
+Prepara pacchetto.app/
+pacchetto/
