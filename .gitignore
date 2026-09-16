@@ -1,33 +1,59 @@
+# ------------------------------------------------------------------
+# Dipendenze e compilati
+# ------------------------------------------------------------------
 node_modules/
 dist/
 
-# risultati delle scansioni: non vanno in repo (contengono URL, screenshot
-# e a volte contenuti dei clienti)
+# ------------------------------------------------------------------
+# Roba dei clienti: non esce mai da questo disco
+# ------------------------------------------------------------------
+# risultati delle scansioni (URL, screenshot, a volte contenuti dei clienti)
 out/
 out-*/
-
-# siti di prova: si rigenerano con `npm run fixtures`
-fixtures/site/
-fixtures/site-react/
-
-# stato del browser salvato da consent-setup: contiene cookie di sessione
-consent-state.json
-*.log
-.DS_Store
 
 # griglie di confronto generate: contengono i finding di un cliente
 # (lo script che le produce sta in scripts/, quello sì va versionato)
 confronto/*.xlsx
 
+# configurazioni dei clienti: URL e perimetro di un progetto reale.
+# Quelle di esempio e dei siti di prova restano versionate, le altre no.
+config.*.json
+!config.example.json
+!config.fixture.json
+!config.hinto.json
+!config.react.json
+
+# stato del browser salvato da consent-setup: contiene cookie di sessione
+consent-state.json
+
+# ------------------------------------------------------------------
+# Generati: si rifanno da soli, non vanno versionati
+# ------------------------------------------------------------------
+# siti di prova: si rigenerano con `npm run fixtures`
+fixtures/site/
+fixtures/site-react/
+
 # avanzamento di una scansione interrotta
 *.jsonl
 
-# cartella d'appoggio per il caricamento manuale su GitHub: si cancella dopo l'uso
-_per-github/
-
-.finestra/
-studio.log
+# icona dell'applicazione: derivata da assets/icona-1024.png,
+# la ricostruisce scripts/crea-icona.sh
 assets/icona.icns
 assets/icona.iconset/
+
+# ------------------------------------------------------------------
+# Roba locale del Mac: applicazioni costruite, profili, appunti
+# ------------------------------------------------------------------
+Avvia Studio.app/
 Prepara pacchetto.app/
+.avvia-studio.applescript
 pacchetto/
+.finestra/
+studio.log
+*.log
+.DS_Store
+
+# cartelle d'appoggio per il caricamento manuale su GitHub: si cancellano
+# dopo l'uso
+_per-github/
+_aggiorna-github/
