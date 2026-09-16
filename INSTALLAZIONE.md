@@ -1,52 +1,52 @@
 # Installare lo Studio accessibilità
 
-Non serve saper programmare. Non serve usare il Terminale, tranne che per due
-doppi clic che aprono una finestra nera: quella finestra è normale, scrive
-quello che sta facendo, e si chiude da sola quando premi Invio.
+Non serve saper programmare, non serve il Terminale, non serve installare
+niente prima. Scarichi un file, lo apri, e la prima volta aspetti qualche
+minuto.
 
-Tempo: **circa dieci minuti**, una volta sola.
+Serve un **Mac con chip Apple** (M1 del 2020 o successivo). Se non sai quale
+hai: menu  → Informazioni su questo Mac, alla voce Chip deve esserci scritto
+*Apple*, non *Intel*.
 
 ---
 
-## 1. Copia la cartella sul tuo Mac
+## 1. Scarica
 
-Ti arriva un file **`studio-accessibilita.zip`**.
+Alessio ti manda un link a una pagina di GitHub. Nella pagina, in fondo, c'è un
+file che si chiama **`Studio-accessibilita-....zip`**: cliccalo per scaricarlo.
+Sono circa 60 MB.
 
-1. Doppio clic sul file: si trasforma in una cartella.
-2. Trascina la cartella in **Documenti**.
+Doppio clic sul file scaricato: diventa un'applicazione, **Studio
+accessibilità**. Trascinala dove preferisci — la scrivania va benissimo,
+la cartella Applicazioni anche.
 
-Non lasciarla in Download: lì rischia di essere svuotata automaticamente.
+Non lasciarla in Download: quella cartella può essere svuotata
+automaticamente.
 
-## 2. Installa
+## 2. Prima apertura
 
-Apri la cartella e fai **doppio clic su `installa.command`**.
+**La prima volta fai clic destro sull'applicazione → Apri → Apri.**
 
-> **La prima volta macOS dirà di no.** Compare un avviso tipo *«impossibile
-> aprire perché proviene da uno sviluppatore non identificato»*. È normale:
-> significa solo che il file non è stato comprato dall'App Store.
->
-> Fai **clic destro** sul file → **Apri** → nella finestra che compare, **Apri**
-> di nuovo. Da quel momento il doppio clic funziona sempre.
+Se fai doppio clic normale, macOS ti dice che *proviene da uno sviluppatore non
+identificato* e non ti lascia proseguire. Non è un allarme sul contenuto:
+significa solo che il programma non è stato pubblicato sull'App Store, cosa che
+richiede un abbonamento da sviluppatore Apple. Il clic destro serve a dire «lo
+so, aprila lo stesso», e va fatto una volta sola.
 
-Si apre una finestra nera che scrive cosa sta facendo. Aspetta.
+Si apre una finestra nera che scrive cosa sta facendo: scarica i componenti e
+il browser con cui esegue le analisi. **Ci vogliono cinque o dieci minuti**, e
+succede solo la prima volta. Quando leggi *«Tutto pronto»*, lo Studio si apre
+da solo nel browser.
 
-**Se dice che manca Node.js**, apre da sola la pagina per scaricarlo:
+## 3. Le volte dopo
 
-1. Clicca il pulsante grande a sinistra (quello con scritto **LTS**).
-2. Scarica il file `.pkg` e fai doppio clic.
-3. Nell'installazione clicca sempre **Continua** e poi **Installa**.
-4. Torna alla cartella e fai di nuovo doppio clic su `installa.command`.
+Doppio clic sull'applicazione. Si apre in pochi secondi.
 
-Quando in fondo leggi **«Installazione completata»**, hai finito.
+La finestra nera deve restare aperta mentre lavori: è il programma che gira.
+Per chiudere tutto, torna in quella finestra e premi **Ctrl+C**.
 
-## 3. Usa
-
-Doppio clic su **`avvia.command`**. Si apre lo Studio nel browser.
-
-Anche qui, la prima volta: clic destro → Apri → Apri.
-
-La finestra nera deve restare aperta mentre lavori — è il programma che gira.
-Per chiudere tutto: torna nella finestra nera e premi **Ctrl+C**.
+I tuoi progetti e i risultati stanno in **Documenti → Studio accessibilita**.
+Restano lì anche quando l'applicazione viene sostituita con una versione nuova.
 
 ---
 
@@ -80,12 +80,16 @@ passare a chi corregge.
 trovato un problema nel **proprio** lavoro, non nel sito. Non è colpa tua e non
 è una cosa che puoi sistemare: fai uno screenshot e scrivi ad Alessio.
 
+**macOS dice che l'applicazione è danneggiata** → succede se il file è stato
+scaricato in un modo che ne rovina il contenuto, per esempio passando da Drive
+o da un allegato di posta. Riscarica dalla pagina di GitHub.
+
 **Il sito ha un banner dei cookie che blocca l'analisi** → nella scheda Analisi
 c'è **Accetta il banner a mano**. Si apre una finestra del browser, accetti una
 volta, e le analisi successive non lo rivedono.
 
-**La finestra nera si chiude subito** → probabilmente manca Node.js. Rifai il
-passo 2.
+**La finestra nera si apre e si chiude subito** → fai uno screenshot di quel
+poco che compare e mandalo ad Alessio.
 
 **Qualsiasi altra cosa** → foto della finestra nera ad Alessio. Il messaggio
 d'errore dice quasi sempre cosa è successo.
@@ -104,3 +108,23 @@ Va detto ai clienti, e va saputo da chi conduce l'analisi.
   di navigazione.
 - **Copre una parte dei criteri WCAG, non tutti.** Il resto resta lavoro umano —
   ed è il motivo per cui la scheda Revisione esiste.
+
+---
+
+## Appendice — partire dal codice sorgente
+
+Riguarda solo chi lavora sul motore, non chi lo usa.
+
+Chi scarica il repository invece dell'applicazione si trova con i file privi del
+permesso di esecuzione: è il caricamento da web di GitHub a registrarli così, e
+nessuno sblocco dall'interfaccia lo ripristina. L'installazione va quindi
+lanciata una volta in questo modo:
+
+1. Apri il **Terminale** (⌘ + barra spaziatrice, scrivi `Terminale`, Invio).
+2. Scrivi `bash` e uno spazio, senza premere Invio.
+3. Trascina `installa.command` dentro la finestra del Terminale.
+4. Premi Invio.
+
+Al termine trovi nella cartella due icone: **Avvia Studio**, per l'uso
+quotidiano, e **Prepara pacchetto**, che costruisce l'applicazione da
+consegnare ai colleghi e spiega come pubblicarla.

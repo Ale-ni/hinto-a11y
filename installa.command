@@ -1,9 +1,12 @@
 #!/bin/bash
 # Installazione dello Studio accessibilità Hinto.
 #
-# Pensato per chi non ha mai usato il Terminale: si apre con un doppio clic,
-# dice a voce alta cosa sta facendo, e se manca qualcosa apre da solo la pagina
-# da cui scaricarlo invece di stampare un comando da copiare.
+# Pensato per chi non ha mai usato il Terminale: dice a voce alta cosa sta
+# facendo, e se manca qualcosa apre da solo la pagina da cui scaricarlo invece
+# di stampare un comando da copiare. Si lancia una volta sola, con
+#   bash <trascina qui questo file>
+# perche' un file scaricato da internet non ha il permesso di essere eseguito.
+# Alla fine crea un'icona di avvio che quel problema non ce l'ha.
 cd "$(dirname "$0")" || exit 1
 
 echo ""
@@ -59,18 +62,72 @@ if ! npx playwright install chromium; then
 fi
 echo "  ✓ browser pronto"
 
-# --- 4. Permessi -------------------------------------------------------
+# --- 4. Un avvio che non dipende dai permessi --------------------------
+#
+# I file .command scaricati da internet arrivano senza il permesso di essere
+# eseguiti, e "chmod +x" da solo non basta sempre: la copia scaricata resta
+# anche in quarantena, e se la cartella viene spostata o ricopiata il permesso
+# si perde di nuovo. Invece di combattere con questo, costruiamo qui sul posto
+# una vera applicazione: generata in locale, non e' scaricata da nessuna parte,
+# quindi ha i permessi giusti per definizione e si apre con un doppio clic.
+CARTELLA="$(pwd)"
+
 chmod +x avvia.command 2>/dev/null
+xattr -d com.apple.quarantine avvia.command 2>/dev/null
+xattr -d com.apple.quarantine installa.command 2>/dev/null
+
+echo ""
+echo "  → Preparo l'icona di avvio..."
+
+PERCORSO_ESCAPED=$(printf '%s' "$CARTELLA" | sed 's/\\/\\\\/g; s/"/\\"/g')
+
+# crea_app NOME_APP COMANDO_SHELL
+crea_app() {
+  local app="$1.app" comando="$2" sorgente=".$1.applescript"
+  cat > "$sorgente" <<APPLESCRIPT
+tell application "Terminal"
+	activate
+	do script "cd \\"$PERCORSO_ESCAPED\\" && $comando"
+end tell
+APPLESCRIPT
+  rm -rf "$app"
+  if osacompile -o "$app" "$sorgente" 2>/dev/null && [ -d "$app" ]; then
+    xattr -d -r com.apple.quarantine "$app" 2>/dev/null
+    rm -f "$sorgente"
+    return 0
+  fi
+  rm -f "$sorgente"
+  return 1
+}
+
+if crea_app "Avvia Studio" "bash avvia.command"; then
+  AVVIO_PRONTO=1
+  echo "  ✓ icona «Avvia Studio» creata nella cartella"
+else
+  AVVIO_PRONTO=0
+  echo "  ! non sono riuscito a creare l'icona: userai avvia.command"
+fi
+
+# Serve solo a chi distribuisce lo strumento, non a chi lo usa.
+if crea_app "Prepara pacchetto" "bash scripts/crea-pacchetto.sh"; then
+  echo "  ✓ icona «Prepara pacchetto» creata (serve per dare lo strumento a un collega)"
+fi
 
 echo ""
 echo "  ────────────────────────────────────────────────"
 echo "  Installazione completata."
 echo ""
-echo "  Da adesso in poi ti serve un gesto solo:"
-echo "  doppio clic su  avvia.command"
-echo ""
-echo "  (La prima volta macOS chiederà conferma: clic destro"
-echo "   sul file, poi Apri, poi di nuovo Apri.)"
+if [ "$AVVIO_PRONTO" = "1" ]; then
+  echo "  Da adesso in poi ti serve un gesto solo:"
+  echo "  doppio clic su  Avvia Studio"
+  echo ""
+  echo "  (È la nuova icona comparsa nella cartella. Se"
+  echo "   sposti la cartella, rifai l'installazione.)"
+else
+  echo "  Per avviare lo Studio: apri il Terminale, scrivi"
+  echo "  bash seguito da uno spazio, trascina dentro il file"
+  echo "  avvia.command e premi Invio."
+fi
 echo "  ────────────────────────────────────────────────"
 echo ""
 echo "  Premi Invio per chiudere."

@@ -8,6 +8,97 @@ Versionamento semantico.
 
 ---
 
+## [0.5.0] — 2026-09-16
+
+La 0.4.4 aveva reso l'avvio quotidiano un doppio clic, ma la **prima**
+installazione passava ancora dal Terminale. Per chi riceve lo strumento è la
+parte che conta: è lì che si ferma.
+
+### Contesto
+
+Il vincolo vero non è il Terminale, è il canale di distribuzione. Un file che
+passa dal caricamento web di GitHub viene registrato come non eseguibile, e lo
+ZIP generato dal repository eredita quella proprietà: qualunque `.command` o
+`.app` arrivi per quella strada nasce morto. Tenere l'installer e spiegare come
+aggirarlo significa spostare il problema sull'utente.
+
+### Aggiunto
+
+- **`scripts/crea-pacchetto.sh`** e l'icona **`Prepara pacchetto`**: costruiscono
+  `Studio accessibilita.app`, un'applicazione unica che contiene il codice del
+  motore **e Node.js**, e che al primo avvio si installa da sola. Chi la riceve
+  non deve procurarsi nulla.
+- L'archivio è prodotto con `ditto`, che conserva i permessi di esecuzione, e va
+  pubblicato come **allegato a una Release** di GitHub: le Release servono il
+  file identico a come lo ricevono, a differenza dello ZIP del repository.
+- L'app tiene i dati in `Documenti/Studio accessibilita` e riallinea il codice
+  a ogni avvio: aggiornare significa sostituire l'applicazione, senza toccare le
+  analisi già fatte.
+
+### Modificato
+
+- `INSTALLAZIONE.md` è ora la guida di chi **riceve** lo strumento: scarica,
+  clic destro → Apri, attende. La strada dal codice sorgente è retrocessa ad
+  appendice per chi lavora sul motore.
+
+### Limiti accettati
+
+- **Solo Mac con chip Apple.** Una build Intel raddoppierebbe il pacchetto e le
+  cose da verificare a mano su macchine che non abbiamo. Lo script lo dice e si
+  ferma invece di produrre un pacchetto che non parte.
+- **Resta il clic destro → Apri alla prima apertura.** Eliminarlo richiede un
+  account sviluppatore Apple e la notarizzazione: è una decisione di spesa, non
+  tecnica.
+- Il pacchetto va costruito su un Mac: non può essere prodotto dalla CI, che gira
+  su Linux.
+
+---
+
+## [0.4.4] — 2026-09-16
+
+Il primo collega a cui è stato passato lo strumento non è riuscito ad avviarlo.
+Non per un bug del motore: per il bit di esecuzione.
+
+### Contesto
+
+Un file `.command` che arriva da un download — lo ZIP di GitHub, un
+trasferimento, una copia — perde il permesso di esecuzione, e macOS risponde
+*«non hai i privilegi di accesso adeguati»*. Nessuno sblocco dall'interfaccia lo
+ripristina: non è Gatekeeper, è il bit `+x`. La strada del caricamento da web su
+GitHub registra i file come non eseguibili, quindi il problema si ripresenta a
+ogni download, e `chmod +x` eseguito dall'installazione non protegge la copia
+successiva.
+
+La conclusione è che un file `.command` non è un buon punto d'ingresso per chi
+non usa il Terminale, per quanto bene sia scritto.
+
+### Aggiunto
+
+- `installa.command` costruisce a fine installazione **`Avvia Studio.app`**,
+  un'applicazione compilata con `osacompile` sulla macchina dell'utente. Essendo
+  generata in locale non è né scaricata né in quarantena: il doppio clic
+  funziona, e continuerà a funzionare dopo ogni aggiornamento del codice.
+  L'app apre una finestra di Terminale che esegue `bash avvia.command`, così il
+  bit di esecuzione non serve nemmeno lì.
+- L'installazione toglie la quarantena dai due `.command` e imposta comunque
+  `+x` su `avvia.command`, come rete di sicurezza se `osacompile` non c'è.
+
+### Modificato
+
+- `INSTALLAZIONE.md`: il passo 2 non è più «doppio clic» ma la sequenza
+  `bash` + trascina il file + Invio, spiegata con il motivo per cui serve. Il
+  passo 3 punta all'icona. Aggiunte alla sezione problemi la voce sui privilegi
+  di accesso e quella sulla cartella spostata (l'app ricorda il percorso
+  assoluto deciso durante l'installazione).
+
+### Nota sui limiti
+
+L'app è legata alla posizione della cartella: se viene spostata, va rifatta
+l'installazione. È un compromesso accettato — l'alternativa, cercare la cartella
+a runtime, introduce ambiguità peggiori quando ne esistono due copie.
+
+---
+
 ## [0.4.3] — 2026-09-16
 
 La 0.4.2 ha reso la scansione di tef.tech dieci volte più veloce. Non era un
