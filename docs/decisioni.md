@@ -338,3 +338,39 @@ visti.
 come bloccante non e' prudente, e' dannoso: insegna a ignorare l'autodiagnosi, e
 un'autodiagnosi ignorata non vale niente. Prima di marcare qualcosa bloccante si
 guarda cosa produce su un sito sano.
+
+
+---
+
+## 14. Nessun controllo blocca finché non è stato visto su due siti
+
+**Contesto.** L'autodiagnosi ha sbagliato tre volte, sempre allo stesso modo.
+La quota di pagine in cluster misti bloccava all'81% su un sito editoriale dove
+il clustering aveva ragione. Corretta, la versione successiva bloccava al 64% su
+un sito di ventotto pagine fatto quasi tutto di notizie, dove il clustering
+aveva di nuovo ragione. In mezzo, il rilevatore di duplicati segnalava nove
+gruppi di cui sei erano coincidenze.
+
+Ogni volta la causa era identica: una soglia tarata su un sito solo, applicata a
+un mondo più vario. E ogni volta il sintomo era lo stesso — il motore dichiarava
+non consegnabile un risultato che andava bene.
+
+Questo ha un costo preciso, ed è il costo peggiore possibile per uno strumento
+del genere: **un controllo che grida al lupo insegna a ignorarlo.** Un'autodiagnosi
+ignorata non vale niente, e un'autodiagnosi che ha torto tre volte su cinque
+viene ignorata.
+
+**Decisione.** Un controllo entra con severità `bloccante` solo dopo essere stato
+osservato su **almeno due siti reali diversi**: uno dove deve scattare e uno dove
+non deve. Finché quella seconda osservazione manca, la severità massima è
+`attenzione`. Un avviso sbagliato costa una riga letta; un blocco sbagliato costa
+la fiducia nello strumento.
+
+**Conseguenze, e una cosa da sapere.** La condizione di collasso del clustering
+oggi blocca solo se il cluster maggiore copre più di metà del sito, mescola tre
+o più sezioni di primo livello, e il sito supera le quaranta pagine. Le tre
+condizioni derivano dall'unico collasso vero mai osservato — due pagine 404 che
+sbilanciavano la radice dell'albero degli URL — e sono state verificate in
+negativo su due siti sani. **Il ramo bloccante non è però mai scattato su un
+collasso reale**: è tarato su un caso storico, non su un'osservazione ripetuta.
+Va considerato provvisorio finché non lo si vede scattare dove serve.

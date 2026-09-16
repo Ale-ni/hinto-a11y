@@ -522,14 +522,48 @@
       return;
     }
 
-    const bloccanti = (r.qualita?.issues ?? []).filter((i) => i.severity === 'bloccante');
-    const attenzioni = (r.qualita?.issues ?? []).filter((i) => i.severity === 'attenzione');
+    /**
+     * Chi legge questa schermata conduce l'audit, non mantiene il motore.
+     *
+     * La prima versione gli metteva davanti l'autodiagnosi per intero, comprese
+     * le note tecniche sul campionamento. Un designer che legge "il 64% delle
+     * pagine sta in cluster a struttura non uniforme" si ferma, e si ferma per
+     * niente: non e' un problema del sito e non e' una cosa su cui puo' agire.
+     *
+     * Quindi: un verdetto solo, in parole sue. Il dettaglio tecnico resta -
+     * nasconderlo sarebbe peggio - ma dietro una piega che si apre solo se
+     * serve, e con scritto a chi e' rivolto.
+     */
+    const tutte = r.qualita?.issues ?? [];
+    const bloccanti = tutte.filter((i) => i.severity === 'bloccante');
+    const minori = tutte.filter((i) => i.severity !== 'bloccante');
+
+    const dettagli = tutte.length
+      ? `<details class="carta" style="margin-top:14px">
+          <summary style="cursor:pointer;font-weight:600">Dettagli tecnici sull\u2019analisi (${tutte.length})</summary>
+          <p class="guida" style="margin:12px 0 8px">
+            Serve a chi mantiene lo strumento. Non riguarda l\u2019accessibilit\u00e0 del sito:
+            riguarda come il motore ha lavorato.
+          </p>
+          <ul>${tutte.map((i) =>
+            `<li style="margin-bottom:8px"><strong>${testo(i.severity)}</strong> \u2014 ${testo(i.message)}</li>`).join('')}</ul>
+        </details>`
+      : '';
+
     const diagnosi = bloccanti.length
-      ? `<div class="avviso grave"><h4>I risultati non sono pronti per il cliente</h4>
+      ? `<div class="avviso grave">
+          <h4>Non costruire il documento per il cliente</h4>
+          <p>Il motore ha riconosciuto un difetto nella <em>propria</em> analisi: i risultati
+             qui sotto potrebbero essere incompleti o contati due volte. Non \u00e8 un problema del
+             sito analizzato. Segnalalo a chi mantiene lo strumento prima di proseguire.</p>
           <ul>${bloccanti.map((i) => `<li>${testo(i.message)}</li>`).join('')}</ul>
-          <p>Il motore ha riconosciuto un difetto nella <em>propria</em> analisi. Segnalalo prima di costruire il documento.</p></div>`
-      : `<div class="avviso ok"><h4>L’analisi si è autodiagnosticata sana</h4>
-          <p>Nessuna anomalia bloccante.${attenzioni.length ? ` ${attenzioni.length} segnalazione/i minore/i qui sotto.` : ''}</p></div>`;
+        </div>${dettagli}`
+      : `<div class="avviso ok">
+          <h4>Analisi sana: puoi procedere</h4>
+          <p>Il motore ha controllato il proprio lavoro e non ha trovato anomalie.${
+            minori.length ? ' Ci sono note tecniche, ma non richiedono nulla da parte tua.' : ''
+          }</p>
+        </div>${dettagli}`;
 
     const bande = ['critica', 'alta', 'media', 'bassa']
       .filter((b) => r.perBanda[b])
@@ -569,8 +603,7 @@
         </p>
       </div>
 
-      ${attenzioni.length ? `<h3>Segnalazioni minori sull’analisi</h3>
-        <div class="carta"><ul>${attenzioni.map((i) => `<li>${testo(i.message)}</li>`).join('')}</ul></div>` : ''}`;
+`;
   }
 
   /* ---------------- avvio ---------------- */

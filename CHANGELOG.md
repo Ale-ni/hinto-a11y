@@ -8,6 +8,130 @@ Versionamento semantico.
 
 ---
 
+## [0.4.3] — 2026-09-16
+
+La 0.4.2 ha reso la scansione di tef.tech dieci volte più veloce. Non era un
+miglioramento: era il motore che guardava meno.
+
+### Contesto
+
+Escludendo la pagina che reindirizzava a Bocconi, il gruppo `/news/*` è
+diventato **uniforme** — quella pagina estranea ne stava sporcando l'impronta
+strutturale e costringeva il clustering a spezzarla in un cluster misto più tre
+singoletti. Il clustering si è quindi corretto da solo: 8 template → 5, e
+nessuna pagina persa dall'inventario (27 su 27 classificate).
+
+Ma i campioni sono scesi da 12 a 7, e **sette tipi di difetto sono spariti** —
+cinque dei quali stavano sulla sola `/news/369`, una pagina che non è più nel
+campione. Nessuno di quei difetti era di Bocconi. Erano difetti veri di tef.tech
+che il motore non ha più guardato.
+
+### Modificato
+
+- **Sotto le 40 pagine il campionamento si disattiva e si analizza tutto.** Il
+  campionamento esiste per rendere abbordabile un sito grande: su 632 pagine, 92
+  campioni fanno risparmiare ore. Su 27 pagine fa risparmiare un minuto e mezzo
+  e costa sette tipi di difetto. Non è un compromesso, è una perdita secca.
+- **I campioni crescono con la radice della dimensione del cluster**, non a
+  passo fisso, con un tetto di 8. Un template che copre 268 pagine merita più
+  attenzione di uno che ne copre due.
+
+  Costo misurato su entrambi i siti reali prima di adottare la regola:
+  hintogroup passa da 92 a 126 campioni, +37% di tempo di scansione; tef passa
+  da 9 a 27, cioè l'intero sito. Entrambi i numeri sono il prezzo della
+  copertura, ed è un prezzo che va pagato: lo strumento vale per quello che
+  trova.
+
+Entrambe le soglie sono in configurazione (`crawl.scanAllUnderPages`,
+`crawl.maxSamplesPerTemplate`).
+
+---
+
+## [0.4.2] — 2026-09-16
+
+Tre falsi positivi trovati guardando i risultati di una scansione vera, non
+immaginati. Tutti e tre facevano la stessa cosa: attribuire al cliente qualcosa
+che non era suo.
+
+### Corretto
+
+- **Pagine di altri siti finivano nel rapporto del cliente.** `page.goto` segue
+  i reindirizzamenti in silenzio, e il motore registrava l'URL di PARTENZA
+  misurando la pagina di ARRIVO. Su tef.tech un articolo rimandava al sito
+  dell'Università Bocconi: **27 difetti altrui** sono finiti nel backlog del
+  cliente, sotto un indirizzo del cliente. Un rapporto che fattura i problemi di
+  qualcun altro non è sbagliato: è indifendibile davanti a chi deve correggerli.
+
+  Ora, sia nella sonda del crawl sia nella scansione, l'URL di arrivo viene
+  confrontato con quello richiesto: se il sito è un altro la pagina esce
+  dall'audit e resta segnalata per quello che è, un collegamento che porta
+  fuori. Il confronto ignora il solo prefisso `www.`; un sottodominio è un altro
+  sito e richiede una decisione esplicita di chi configura.
+
+- **Contrasto: falsi positivi causati da lightbox e finestre di dialogo.** axe
+  restituisce `incomplete` quando non riesce a misurare, ma il MOTIVO cambia
+  tutto e veniva buttato via. Su tef.tech, 14 segnalazioni su 29 erano
+  `"could not be determined because it is overlapped by another element"`: il
+  banner cookie di Iubenda e le slide di un carosello impedivano la misura. Non
+  è un difetto del sito, ed è esattamente il genere di voce che fa perdere tempo
+  a chi revisiona.
+
+  Ora la sovrapposizione viene riconosciuta e scartata. Restano invece in coda
+  `"contains an image node"` e `"due to a background gradient"`: lì il dubbio è
+  vero e lo scioglie una persona guardando (440 evidenze su hintogroup.eu).
+
+- **Percorsi di servizio esclusi dal crawl**: `/cdn-cgi/`, `/wp-json/`,
+  `/wp-admin/`, `/xmlrpc.php`, `/.well-known/`. Il riconoscimento è per segmento
+  di percorso, non per sottostringa.
+
+### Modificato
+
+- **Il designer vede un verdetto, non la diagnostica del motore.** La schermata
+  Risultati mostrava l'autodiagnosi per intero: un designer che legge "il 64%
+  delle pagine sta in cluster a struttura non uniforme" si ferma, e si ferma per
+  niente. Ora c'è una riga sola — «Analisi sana: puoi procedere» oppure «Non
+  costruire il documento per il cliente» — e il dettaglio tecnico sta dietro una
+  piega, con scritto a chi è rivolto.
+- **Cluster non uniformi ma coerenti scendono a nota.** Se ogni cluster misto
+  appartiene a una sezione sola non c'è nulla di anomalo: è un sito editoriale.
+
+---
+
+## [0.4.1] — 2026-09-15
+
+### Corretto
+
+- **Il rilevamento del clustering collassato bloccava su un sito sano.** La
+  regola riconosceva il collasso dalla sola quota di pagine nel cluster più
+  grande, soglia 60%, tarata su un sito solo. Sul secondo sito reale — 28
+  pagine, di cui 18 articoli di notizie — ha bloccato al 64%, e guardando i
+  dati aveva torto: quel cluster era interamente `/news/`, cioè il
+  raggruppamento corretto di un sito piccolo fatto quasi tutto di notizie.
+
+  È lo stesso errore della versione precedente dello stesso controllo, e della
+  regola sulle classi generate prima ancora: una soglia tarata su un campione,
+  applicata a un mondo più vario. La quota non distingue le due situazioni,
+  perché su un sito monotematico un template può legittimamente coprire i due
+  terzi delle pagine.
+
+  Il segnale giusto è l'**omogeneità** del cluster, non la sua dimensione:
+  quando il clustering collassa, nello stesso bucket finiscono sezioni che non
+  c'entrano nulla fra loro (`/it/blog`, `/it/eventi`, `/intranet`, `/webmail`
+  insieme); quando funziona, il cluster grande appartiene a una sezione sola.
+  Ora si blocca solo se il cluster maggiore copre più metà del sito **e**
+  mescola almeno tre sezioni di primo livello — e mai sotto le 40 pagine, dove
+  le percentuali sono rumore.
+
+- **Percorsi di servizio esclusi dal crawl.** `/cdn-cgi/l/email-protection` —
+  l'offuscamento delle email di Cloudflare, presente su qualunque sito dietro
+  Cloudflare che pubblichi un indirizzo — era finito nel campione di un sito
+  reale, sprecando una pagina su un 404 e creando un cluster spurio. Esclusi
+  anche `/wp-json/`, `/wp-admin/`, `/xmlrpc.php`, `/.well-known/`. Il
+  riconoscimento è per segmento di percorso, non per sottostringa: `/servizi/cdn`
+  e `/blog/wp-json-spiegato` restano.
+
+---
+
 ## [0.4.0] — 2026-09-15
 
 Lo strumento smette di richiedere il terminale.

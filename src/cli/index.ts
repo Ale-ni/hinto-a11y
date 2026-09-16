@@ -31,7 +31,7 @@ import { AnthropicTriageAdapter, DEFAULT_ANTHROPIC } from '../analyze/adapters/a
 import { DEFAULT_DASHBOARD, renderDashboard } from '../report/dashboard.js';
 import { renderExcel } from '../report/excel.js';
 
-const ENGINE_VERSION = '0.4.0';
+const ENGINE_VERSION = '0.4.3';
 
 /* ------------------------------------------------------------------ *
  * Configurazione
@@ -50,6 +50,9 @@ const Config = z.object({
       politenessDelayMs: z.number().int().optional(),
       probesPerGroup: z.number().int().optional(),
       samplesPerTemplate: z.number().int().optional(),
+      /** Sotto questa dimensione si analizza tutto il sito, senza campionare */
+      scanAllUnderPages: z.number().int().optional(),
+      maxSamplesPerTemplate: z.number().int().optional(),
     })
     .default({}),
   consent: z

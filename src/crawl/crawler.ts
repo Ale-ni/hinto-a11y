@@ -50,6 +50,13 @@ export interface CrawlOptions {
   /** Pagine effettivamente scansionate per ogni template finale */
   samplesPerTemplate: number;
   /**
+   * Sotto questa dimensione il campionamento si disattiva e si analizza tutto.
+   * 0 lo disattiva.
+   */
+  scanAllUnderPages: number;
+  /** Tetto ai campioni di un singolo template, per quanto grande sia */
+  maxSamplesPerTemplate: number;
+  /**
    * Campioni per le varianti linguistiche di un template gia' campionato.
    * 0 disattiva la riduzione e le tratta come template a se'.
    */
@@ -64,6 +71,8 @@ export const DEFAULT_CRAWL: CrawlOptions = {
   politenessDelayMs: 150,
   probesPerGroup: 2,
   samplesPerTemplate: 3,
+  scanAllUnderPages: 40,
+  maxSamplesPerTemplate: 8,
   languageSpotCheckSamples: 1,
   userAgent:
     'HintoA11yEngine/0.1 (+accessibility audit; contatto: accessibilita@hintogroup.eu)',
@@ -94,6 +103,83 @@ export function normalizeUrl(raw: string, base: string): string | null {
 
 const SKIP_EXT =
   /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|tar|gz|jpe?g|png|gif|webp|avif|svg|ico|mp4|mp3|wav|avi|mov|css|js|json|xml|rss|woff2?|ttf|eot)$/i;
+
+/**
+ * Quanti campioni per un template.
+ *
+ * Il campionamento esiste per rendere abbordabile un sito grande: scansionare
+ * 632 pagine costa ore, 92 campioni le rappresentano. Su un sito piccolo pero'
+ * non fa risparmiare nulla di significativo e costa copertura.
+ *
+ * Osservato su tef.tech, 27 pagine: con tre campioni per template il motore
+ * ne scansionava sette, e SETTE TIPI DI DIFETTO stavano su pagine mai guardate
+ * - cinque di questi sulla sola `/news/369`. Scansionare tutte e 27 le pagine
+ * costa due minuti. Il campionamento, li', non serviva a niente.
+ *
+ * Sopra la soglia il numero di campioni cresce con la radice della dimensione
+ * del cluster, non a passo fisso: un template che copre 268 pagine merita piu'
+ * attenzione di uno che ne copre due. La crescita e' sublineare e con un tetto,
+ * altrimenti il risparmio sparisce.
+ *
+ * Costo misurato sui due siti reali: hintogroup passa da 92 a 126 campioni
+ * (+37% di tempo di scansione), tef passa da 9 a 27 - cioe' l'intero sito.
+ */
+function quantiCampioni(
+  pageCount: number,
+  fingerprint: string,
+  opts: CrawlOptions,
+  totalePagine: number,
+): number {
+  // sito piccolo: si guarda tutto, il campionamento non avrebbe senso
+  if (opts.scanAllUnderPages > 0 && totalePagine <= opts.scanAllUnderPages) return pageCount;
+
+  const incerto = fingerprint === 'unknown' || fingerprint.startsWith('mixed-');
+  const base = Math.ceil(Math.sqrt(pageCount));
+  const limitato = Math.max(opts.samplesPerTemplate, Math.min(base, opts.maxSamplesPerTemplate));
+  return Math.min(pageCount, limitato + (incerto ? 1 : 0));
+}
+
+/**
+ * Due URL appartengono allo stesso sito?
+ *
+ * Serve a riconoscere i reindirizzamenti che portano FUORI. Su tef.tech una
+ * pagina di notizie rimandava al sito di Bocconi: il motore registrava l'URL
+ * richiesto, auditava la pagina di arrivo, e il rapporto attribuiva al cliente
+ * i difetti di un sito che non e' suo. E' lo stesso errore, piu' grave, di
+ * quando i difetti di un widget di terze parti finivano sul front-end del
+ * cliente.
+ *
+ * Il confronto ignora il solo prefisso `www.`, perche' `www.x.it` e `x.it` sono
+ * lo stesso sito; tutto il resto - sottodomini compresi - e' un altro sito e
+ * merita una decisione esplicita di chi configura l'audit.
+ */
+export function stessoSito(a: string, b: string): boolean {
+  const host = (u: string): string => {
+    try {
+      return new URL(u).hostname.replace(/^www\./i, '').toLowerCase();
+    } catch {
+      return '';
+    }
+  };
+  const ha = host(a);
+  return ha !== '' && ha === host(b);
+}
+
+/**
+ * Percorsi di servizio che non sono pagine del sito.
+ *
+ * Non sono contenuto e non hanno un template: sono endpoint tecnici che
+ * finiscono nell'HTML per come funziona l'infrastruttura. Lasciarli passare
+ * costa due volte - una pagina del campione sprecata su un 404, e un cluster
+ * spurio nel rapporto.
+ *
+ * `/cdn-cgi/l/email-protection` e' l'offuscamento degli indirizzi email di
+ * Cloudflare: compare come href su qualunque sito dietro Cloudflare che
+ * pubblichi un'email, risponde 404 a una visita diretta, ed e' finito nel
+ * campione di un sito reale.
+ */
+const SKIP_PATH =
+  /\/(cdn-cgi|wp-json|xmlrpc\.php|wp-admin|wp-login\.php|\.well-known)(\/|$)/i;
 
 /**
  * Forma dell'URL, normalizzazione di primo livello: sostituisce i segmenti
@@ -266,7 +352,7 @@ async function readSitemaps(site: SiteTarget, opts: CrawlOptions): Promise<strin
         queue.push(loc);
       } else {
         const n = normalizeUrl(loc, site.baseUrl);
-        if (n && sameOrigin(n, site.baseUrl) && !SKIP_EXT.test(n)) found.add(n);
+        if (n && sameOrigin(n, site.baseUrl) && !SKIP_EXT.test(n) && !SKIP_PATH.test(n)) found.add(n);
       }
     }
   }
@@ -285,7 +371,7 @@ function extractLinks(html: string, pageUrl: string, base: string): string[] {
   const out = new Set<string>();
   for (const m of html.matchAll(/<a\b[^>]*\shref\s*=\s*["']([^"']+)["']/gi)) {
     const n = normalizeUrl(m[1], pageUrl);
-    if (n && sameOrigin(n, base) && !SKIP_EXT.test(n)) out.add(n);
+    if (n && sameOrigin(n, base) && !SKIP_EXT.test(n) && !SKIP_PATH.test(n)) out.add(n);
   }
   return [...out];
 }
@@ -464,6 +550,8 @@ export async function clusterByTemplate(
           for (const url of probes) {
             try {
               const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+              // reindirizzamento fuori sito: la pagina di arrivo non e' del cliente
+              if (!stessoSito(page.url(), url)) continue;
               if ((resp?.status() ?? 0) >= 400) continue;
               await page.waitForTimeout(400);
               materials.set(url, await extractMaterial(page));
@@ -583,12 +671,7 @@ export async function clusterByTemplate(
         label,
         siteIds: [...new Set(members.map((m) => m.siteId))],
         pageCount: members.length,
-        samples: pickRepresentatives(
-          members.map((m) => m.url),
-          fp === 'unknown' || fp.startsWith('mixed-')
-            ? Math.max(opts.samplesPerTemplate, 4)
-            : opts.samplesPerTemplate,
-        ),
+        samples: pickRepresentatives(members.map((m) => m.url), quantiCampioni(members.length, fp, opts, pages.length)),
         memberUrls: members.map((m) => m.url),
       };
     })
@@ -635,6 +718,12 @@ export async function clusterByTemplate(
   }
 
   const totalSamples = templates.reduce((n, t) => n + t.samples.length, 0);
+  if (opts.scanAllUnderPages > 0 && pages.length <= opts.scanAllUnderPages) {
+    onProgress?.(
+      `  sito piccolo (${pages.length} pagine): campionamento disattivato, si analizza tutto. ` +
+        `Su un sito di queste dimensioni campionare fa risparmiare poco e costa copertura.`,
+    );
+  }
   onProgress?.(
     `${byPattern.size} gruppi -> ${templates.length} template distinti; ` +
       `da scansionare ${totalSamples} pagine invece di ${pages.length} ` +

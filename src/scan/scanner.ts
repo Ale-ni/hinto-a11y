@@ -13,6 +13,7 @@ import type { Browser, BrowserContext, Page } from 'playwright';
 import pLimit from 'p-limit';
 import type { DiscoveredPage, Evidence, SiteTarget } from '../core/types.js';
 import { newContext } from './browser.js';
+import { stessoSito } from '../crawl/crawler.js';
 import { resolveSignature } from '../core/signature.js';
 import { runAxe, AXE_VERSION } from './axeRunner.js';
 import { INJECTED_HELPERS, stableClassesScript } from './injected.js';
@@ -157,6 +158,36 @@ export async function scanPage(
      * backlog significa far perdere tempo a chi lo legge. Li segnaliamo invece
      * come collegamenti rotti, che e' l'informazione utile.
      */
+    /**
+     * Reindirizzamento fuori sito.
+     *
+     * `page.goto` segue i reindirizzamenti in silenzio. Senza questo controllo
+     * il motore misura la pagina di ARRIVO e la registra sotto l'URL di
+     * PARTENZA: su un sito reale un articolo rimandava al sito di un'altra
+     * organizzazione, e ventisette difetti altrui sono finiti nel rapporto del
+     * cliente sotto un indirizzo del cliente. Un rapporto che fattura i
+     * problemi di qualcun altro non e' un rapporto sbagliato: e' un rapporto
+     * che non si puo' difendere davanti a chi deve correggerli.
+     *
+     * La pagina esce dall'audit e resta segnalata per quello che e': un
+     * collegamento che porta fuori.
+     */
+    const arrivo = page.url();
+    if (!stessoSito(arrivo, target.url)) {
+      return {
+        url: target.url,
+        siteId: target.siteId,
+        fingerprint: target.fingerprint,
+        title: '',
+        evidence: [],
+        tabOrder: [],
+        passedRules: [],
+        httpStatus: response?.status(),
+        error: `reindirizza a un altro sito (${new URL(arrivo).hostname}): esclusa dall'audit`,
+        durationMs: Date.now() - started,
+      };
+    }
+
     const status = response?.status() ?? 0;
     if (status >= 400) {
       return {

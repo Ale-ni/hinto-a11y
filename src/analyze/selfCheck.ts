@@ -218,8 +218,25 @@ function checkSignatureStability(findings: Finding[]): QualityFinding | null {
  *
  * La patologia vera e' un'altra, ed e' gia' stata osservata: il clustering che
  * COLLASSA, con un unico cluster misto che si mangia gran parte del sito (due
- * pagine 404 che sbilanciavano la radice dell'albero degli URL). Si riconosce
- * dalla concentrazione in un singolo cluster, non dalla quota complessiva.
+ * pagine 404 che sbilanciavano la radice dell'albero degli URL).
+ *
+ * Anche la seconda versione era sbagliata, e per lo stesso motivo della prima:
+ * riconosceva il collasso dalla sola QUOTA di pagine nel cluster piu' grande,
+ * soglia 60%, tarata di nuovo su un sito solo. Sul sito successivo - 28 pagine,
+ * di cui 18 articoli di notizie - ha bloccato al 64%. Guardando i dati aveva
+ * torto un'altra volta: quel cluster era interamente `/news/`, cioe' il
+ * raggruppamento corretto di un sito piccolo fatto quasi tutto di notizie.
+ *
+ * La quota non distingue le due situazioni, perche' su un sito monotematico un
+ * template PUO' legittimamente coprire i due terzi delle pagine. Cio' che le
+ * distingue e' l'OMOGENEITA' del cluster: quando il clustering collassa, nello
+ * stesso bucket finiscono pagine di sezioni che non c'entrano nulla fra loro
+ * (`/it/blog`, `/it/eventi`, `/intranet`, `/webmail` tutte insieme); quando
+ * funziona, il cluster grande appartiene a una sezione sola.
+ *
+ * Si guarda quindi quante sezioni di primo livello copre, non quanto e' grande.
+ * E sotto una certa dimensione del sito non si blocca affatto: su ventotto
+ * pagine le percentuali sono rumore.
  *
  * Nota sul messaggio: la vecchia versione diceva che "le stime di diffusione
  * sono poco affidabili". Non e' vero - il numero di pagine per pattern di URL
@@ -238,31 +255,67 @@ function checkMixedClusters(templates: TemplateCluster[]): QualityFinding | null
   const share = mixedPages / total;
   const largestShare = mixed[0].pageCount / total;
 
-  // un solo cluster che inghiotte il sito: il clustering è collassato
-  if (largestShare > 0.6) {
+  /** Sezioni di primo livello toccate da un cluster: `/news/x` -> "news". */
+  const sezioni = (t: TemplateCluster): Set<string> => {
+    const out = new Set<string>();
+    for (const u of t.memberUrls ?? []) {
+      try {
+        out.add(new URL(u).pathname.split('/').filter(Boolean)[0] ?? '(radice)');
+      } catch {
+        /* URL malformato: non dice nulla sulla sezione */
+      }
+    }
+    return out;
+  };
+
+  /**
+   * Collasso: un cluster grande che mescola sezioni senza rapporto fra loro.
+   * Sotto le quaranta pagine non si blocca: le percentuali sono rumore.
+   */
+  const sezioniDelPiuGrande = sezioni(mixed[0]);
+  if (total >= 40 && largestShare > 0.5 && sezioniDelPiuGrande.size >= 3) {
     return {
       kind: QualityIssue.mixedClusters,
       severity: 'bloccante',
       message:
         `Un solo cluster raccoglie il ${Math.round(largestShare * 100)}% delle pagine ` +
-        `(${mixed[0].pageCount} su ${total}). Il clustering è collassato: le pagine non ` +
-        `vengono piu' distinte per template, e il campione non rappresenta il sito.`,
-      samples: mixed.slice(0, 3).map((t) => `${t.label}: ${t.pageCount} pagine`),
+        `(${mixed[0].pageCount} su ${total}) mescolando ${sezioniDelPiuGrande.size} sezioni ` +
+        `diverse del sito. Il clustering è collassato: le pagine non vengono più distinte ` +
+        `per template, e il campione non rappresenta il sito.`,
+      samples: [
+        `sezioni nello stesso cluster: ${[...sezioniDelPiuGrande].slice(0, 8).join(', ')}`,
+        ...mixed.slice(0, 2).map((t) => `${t.label}: ${t.pageCount} pagine`),
+      ],
     };
   }
 
   if (share < 0.5) return null;
 
+  /**
+   * Se ogni cluster misto appartiene a una sezione sola, non c'e' niente di
+   * anomalo: e' un sito editoriale, e il messaggio esiste solo per spiegare
+   * perche' la scansione e' piu' lunga. Scende a nota, cosi' l'interfaccia puo'
+   * tenerlo fuori dalla vista di chi conduce l'audit senza nasconderlo a chi
+   * mantiene lo strumento. Un designer che legge "attenzione" si ferma, e si
+   * ferma per niente.
+   */
+  const tutteCoerenti = mixed.every((t) => sezioni(t).size <= 1);
+
   const extraSamples = mixed.reduce((n, t) => n + t.samples.length, 0);
   return {
     kind: QualityIssue.mixedClusters,
-    severity: 'attenzione',
+    severity: tutteCoerenti ? 'nota' : 'attenzione',
     message:
       `Il ${Math.round(share * 100)}% delle pagine (${mixedPages} su ${total}) sta in cluster ` +
-      `a struttura non uniforme, distribuiti su ${mixed.length} pattern di URL distinti. ` +
-      `Per contenuti editoriali e' normale e il campionamento resta valido; il costo e' che ` +
-      `questi cluster vengono campionati più fitto (${extraSamples} pagine sondate). ` +
-      `Si riduce dichiarando i pattern in configurazione o unificando le versioni linguistiche.`,
+      `a struttura non uniforme, su ${mixed.length} pattern di URL distinti` +
+      (tutteCoerenti
+        ? `, ciascuno dentro una sola sezione del sito. È il caso normale di un sito ` +
+          `editoriale, dove il corpo degli articoli varia da uno all'altro: il campionamento ` +
+          `resta valido e non c'è nulla da correggere. L'unico effetto è che questi cluster ` +
+          `vengono sondati più a fondo (${extraSamples} pagine invece del minimo).`
+        : `. Il campionamento resta valido; il costo è che questi cluster vengono campionati ` +
+          `più fitto (${extraSamples} pagine sondate). Si riduce dichiarando i pattern in ` +
+          `configurazione o unificando le versioni linguistiche.`),
     samples: mixed.slice(0, 5).map((t) => `${t.label}: ${t.pageCount} pagine`),
   };
 }

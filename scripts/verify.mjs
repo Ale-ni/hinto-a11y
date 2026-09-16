@@ -162,6 +162,11 @@ async function main() {
     await run('npx', ['tsx', 'test/language.test.mts'], { quiet: true });
     check('solo le traduzioni scendono a controllo a campione', true);
 
+    /* ---------------- falsi positivi da siti reali ---------------- */
+    console.log('\n=== Falsi positivi osservati su siti reali ===');
+    await run('npx', ['tsx', 'test/falsi-positivi.test.mts'], { quiet: true });
+    check('reindirizzamenti fuori sito e contrasto sotto overlay riconosciuti', true);
+
     /* ---------------- vincolo non negoziabile ---------------- */
     console.log('\n=== Tetto ai verdetti automatici ===');
     await run('npx', ['tsx', 'test/triage-cap.test.mts'], { quiet: true });

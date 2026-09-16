@@ -136,6 +136,28 @@ export interface AxeOutcome {
   incompleteCount: number;
 }
 
+/**
+ * La misura del contrasto e' stata impedita da qualcosa che sta SOPRA?
+ *
+ * Messaggi di axe osservati su siti reali:
+ *   "Element's background color could not be determined because it is
+ *    overlapped by another element"
+ *   "...because it partially overlaps other elements"
+ *
+ * Entrambi dicono la stessa cosa: c'e' un elemento sovrapposto - un banner
+ * cookie, una lightbox, una finestra di dialogo, una slide di carosello - e il
+ * colore di sfondo reale non e' calcolabile. Non e' un difetto del sito.
+ *
+ * Volutamente NON confuso con "contains an image node" o "due to a background
+ * gradient": quelli sono dubbi veri, che una persona deve sciogliere guardando.
+ */
+export function misuraImpeditaDaSovrapposizione(
+  checks: Array<{ message?: string }> | undefined,
+): boolean {
+  if (!checks?.length) return false;
+  return checks.some((c) => /overlap(ped|s)\b/i.test(String(c.message ?? '')));
+}
+
 export async function runAxe(
   page: Page,
   includeForward = true,
@@ -233,11 +255,36 @@ export async function runAxe(
     }
   }
 
-  // `incomplete` = axe non e' riuscita a decidere. E' informazione preziosa:
-  // sono esattamente i casi che vanno in coda di revisione, non scartati.
+  /**
+   * Un risultato "incomplete" di axe non e' un difetto: e' axe che dichiara di
+   * non aver potuto decidere. Il MOTIVO pero' cambia tutto, e finora veniva
+   * buttato via insieme al resto.
+   *
+   * Osservato su due siti reali, i motivi sono tre e vogliono tre destini:
+   *
+   *   "could not be determined because it is overlapped by another element"
+   *   "...because it partially overlaps other elements"
+   *      Non e' un problema del sito: e' la misura resa impossibile da qualcosa
+   *      che sta SOPRA. Su tef.tech erano il banner cookie di Iubenda e le
+   *      slide di un carosello - lightbox, finestre di dialogo, overlay
+   *      appiccicati. Quattordici segnalazioni su ventinove, tutte da buttare.
+   *      Mandarle in coda di revisione significa far guardare a una persona
+   *      un difetto che non esiste.
+   *
+   *   "...because element contains an image node"
+   *   "...due to a background gradient"
+   *      Qui il dubbio e' vero e nessuno strumento puo' scioglierlo: testo
+   *      sopra un'immagine o un gradiente si giudica guardandolo. Resta in
+   *      coda, ed e' il caso piu' frequente (440 evidenze su hintogroup.eu).
+   *
+   * Se un giorno axe cambiasse il testo di questi messaggi, il filtro
+   * smetterebbe di riconoscere la sovrapposizione e le segnalazioni
+   * tornerebbero in coda: si degrada verso il rumore, non verso il silenzio.
+   */
   for (const v of results.incomplete) {
     const criteria = criteriaFromAxeTags(v.id, v.tags);
     for (const node of v.nodes.slice(0, 5)) {
+      if (v.id === 'color-contrast' && misuraImpeditaDaSovrapposizione(node.any)) continue;
       observations.push({
         checkId: `axe-incomplete:${v.id}`,
         criteria,
