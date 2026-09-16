@@ -8,6 +8,36 @@ Versionamento semantico.
 
 ---
 
+## [0.5.1] — 2026-09-16
+
+Primo avvio sul Mac di un collega: `EACCES, permission denied` su
+`~/.npm/_cacache`. L'installazione non è mai partita.
+
+### Contesto
+
+La cartella `~/.npm` di quell'utente appartiene a `root`: è quello che resta
+quando, mesi o anni prima, qualcuno ha lanciato un `sudo npm install` per far
+funzionare qualcos'altro. Da quel momento ogni `npm install` fatto da utente
+normale fallisce, e non c'è modo che una persona non tecnica se ne accorga o vi
+rimedi — la soluzione che si trova in rete è un `sudo chown -R`, cioè
+esattamente ciò che questo pacchetto esiste per evitare.
+
+Il punto generale: l'applicazione non può dipendere dallo stato delle cartelle
+condivise di un Mac che non abbiamo mai visto.
+
+### Corretto
+
+- L'app usa una **cache npm propria**, dentro la cartella di lavoro
+  (`npm_config_cache`), e scarica il browser di Playwright nello stesso posto
+  (`PLAYWRIGHT_BROWSERS_PATH`). Niente più dipendenze da `~/.npm` e da
+  `~/Library/Caches`. Come effetto collaterale, disinstallare torna a
+  significare «cancella una cartella».
+- Il messaggio d'errore dell'installazione non attribuisce più tutto alla rete:
+  distingue i codici di rete da quelli di permesso e dice cosa fare in ciascun
+  caso. La diagnosi sbagliata è costata al collega un tentativo e a noi un giro.
+
+---
+
 ## [0.5.0] — 2026-09-16
 
 La 0.4.4 aveva reso l'avvio quotidiano un doppio clic, ma la **prima**

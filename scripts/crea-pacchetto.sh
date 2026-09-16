@@ -106,6 +106,18 @@ RISORSE="$(cd "$(dirname "$0")" && pwd)"
 LAVORO="$HOME/Documents/Studio accessibilita"
 export PATH="$RISORSE/node/bin:$PATH"
 
+# Tutto quello che si scarica finisce dentro la cartella di lavoro, non nelle
+# cartelle condivise dell'utente. Motivo osservato sul campo: su un Mac dove
+# in passato qualcuno ha lanciato npm con sudo, ~/.npm appartiene a root e
+# l'installazione muore con "permission denied" senza che l'utente abbia modo
+# di accorgersene o di rimediare. Con una cache tutta nostra il problema non
+# si pone, e disinstallare vuol dire cancellare una cartella.
+export npm_config_cache="$LAVORO/.npm-cache"
+export npm_config_audit=false
+export npm_config_fund=false
+export npm_config_update_notifier=false
+export PLAYWRIGHT_BROWSERS_PATH="$LAVORO/.browser"
+
 echo ""
 echo "  ┌──────────────────────────────────────────────┐"
 echo "  │          Studio accessibilità Hinto          │"
@@ -136,14 +148,25 @@ rsync -a --exclude 'node_modules' --exclude 'out' --exclude 'out-*' \
 
 cd "$LAVORO" || { echo "  ✗ Non riesco ad aprire la cartella di lavoro."; chiudi 1; }
 
-if [ ! -d node_modules ] || [ package.json -nt node_modules ]; then
+# Non basta che node_modules esista: un'installazione interrotta a meta' ne
+# lascia uno parziale, e ripartire da li' significa avviare qualcosa che si
+# rompe piu' avanti. Il test e' sul programma che serve davvero ad avviare lo
+# Studio.
+if [ ! -x node_modules/.bin/tsx ] || [ package.json -nt node_modules ]; then
   echo "  → Installo i componenti necessari. Qualche minuto, una volta sola."
   echo ""
   npm install --no-audit --no-fund --loglevel=error || {
     echo ""
-    echo "  ✗ Installazione dei componenti non riuscita. Di solito e' la rete:"
-    echo "    riprova fra qualche minuto. Se insiste, foto di questa finestra"
-    echo "    ad Alessio."
+    echo "  ✗ Installazione dei componenti non riuscita."
+    echo ""
+    echo "    Le righe qui sopra dicono perche'. Le due cause tipiche:"
+    echo "    - se compare ETIMEDOUT, ENOTFOUND o ECONNRESET e' la rete:"
+    echo "      riprova fra qualche minuto;"
+    echo "    - se compare EACCES o permission denied e' un permesso su questo"
+    echo "      Mac: manda la foto della finestra ad Alessio, si risolve dal"
+    echo "      programma senza che tu debba fare niente."
+    echo ""
+    echo "    In ogni altro caso: foto di questa finestra ad Alessio."
     chiudi 1
   }
   echo "  → Scarico il browser che esegue le analisi. Ancora un paio di minuti."
