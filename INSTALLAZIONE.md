@@ -35,18 +35,22 @@ so, aprila lo stesso», e va fatto una volta sola.
 
 Si apre una finestra nera che scrive cosa sta facendo: scarica i componenti e
 il browser con cui esegue le analisi. **Ci vogliono cinque o dieci minuti**, e
-succede solo la prima volta. Quando leggi *«Tutto pronto»*, lo Studio si apre
-da solo nel browser.
+succede **solo la prima volta**. Al termine la finestra nera si toglie di mezzo
+da sola e lo Studio si apre nella propria finestra.
 
 ## 3. Le volte dopo
 
-Doppio clic sull'applicazione. Si apre in pochi secondi.
+Doppio clic sull'applicazione: si apre in pochi secondi, nella sua finestra.
+Niente finestra nera, niente browser con schede e barra degli indirizzi.
 
-La finestra nera deve restare aperta mentre lavori: è il programma che gira.
-Per chiudere tutto, torna in quella finestra e premi **Ctrl+C**.
+Per chiudere: il pulsante **Chiudi lo Studio**, in alto a destra.
 
 I tuoi progetti e i risultati stanno in **Documenti → Studio accessibilita**.
-Restano lì anche quando l'applicazione viene sostituita con una versione nuova.
+Quella cartella contiene **soltanto il tuo lavoro**: niente file di programma.
+Resta lì anche quando l'applicazione viene sostituita con una versione nuova.
+
+Il motore vero e proprio sta altrove, in Libreria, dove macOS tiene le cose che
+i programmi gestiscono da soli. Non devi aprirla mai.
 
 ---
 
@@ -91,8 +95,13 @@ volta, e le analisi successive non lo rivedono.
 **La finestra nera si apre e si chiude subito** → fai uno screenshot di quel
 poco che compare e mandalo ad Alessio.
 
-**Qualsiasi altra cosa** → foto della finestra nera ad Alessio. Il messaggio
-d'errore dice quasi sempre cosa è successo.
+**L'applicazione si apre ma la finestra resta bianca** → aspetta una decina di
+secondi: al primo avvio dopo un aggiornamento ci mette un po'. Se resta bianca,
+chiudi e riapri.
+
+**Qualsiasi altra cosa** → foto della finestra nera ad Alessio, se c'è. Se non
+c'è, in **Documenti → Studio accessibilita** trovi un file `studio.log`: è il
+diario di quello che è successo, mandalo.
 
 ---
 

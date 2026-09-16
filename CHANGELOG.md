@@ -8,6 +8,188 @@ Versionamento semantico.
 
 ---
 
+## [0.6.0] — 2026-09-16
+
+Chi apriva `Documenti/Studio accessibilita` trovava i propri progetti mescolati
+a `src/`, `node_modules/`, `package.json` e ai file di configurazione di
+esempio. Sembra un dettaglio estetico: non lo è. Una cartella in cui non si
+capisce cosa è tuo e cosa è del programma è una cartella in cui prima o poi
+qualcuno cancella la cosa sbagliata.
+
+### Modificato — struttura delle cartelle
+
+Il server ora distingue due radici:
+
+- **`RADICE`** — il codice, le dipendenze, i file di esempio. Con
+  l'applicazione va in `~/Libreria/Application Support/Studio accessibilita`,
+  dove macOS tiene ciò che i programmi gestiscono da soli.
+- **`DATI`** — i `config.*.json` dei clienti, le cartelle `out-*`, le
+  revisioni. Resta in `Documenti/Studio accessibilita`, e ora contiene
+  **soltanto quello**.
+
+La seconda si imposta con la variabile `A11Y_DATI`. **Se non è impostata le due
+coincidono**: chi lavora dentro il repository non vede alcun cambiamento, ed è
+giusto così — lì la separazione non serve.
+
+Di conseguenza il comando di analisi non viene più lanciato con `npx` dalla
+cartella del progetto, ma con il percorso assoluto di `tsx` e la cartella di
+lavoro dell'utente: `npx` cerca i pacchetti a partire dalla cartella corrente,
+che ora non è più quella del codice.
+
+### Migrazione automatica
+
+All'apertura, una cartella di lavoro che contiene ancora il codice di una
+versione precedente viene riordinata: i file di sistema finiscono in
+`_motore-precedente`, **nulla viene cancellato**, e l'utente legge dove sono
+finiti. Il browser già scaricato e la cache di npm vengono invece recuperati,
+per non rifare duecento megabyte di download.
+
+### Modificato — icona
+
+Nuova icona: simbolo di accessibilità bianco su fondo viola `#633beb`, al posto
+del segno di spunta verde. La favicon della finestra è stata rifatta uguale.
+
+---
+
+## [0.5.5] — 2026-09-16
+
+### Aggiunto
+
+- **Icona propria**, al posto di quella generica di AppleScript e di quella di
+  sistema. L'immagine sorgente è un PNG in `assets/`; `scripts/crea-icona.sh` la
+  converte in `.icns` con gli strumenti già presenti in macOS (`sips`,
+  `iconutil`), e l'icona finisce sia sull'applicazione impacchettata sia sulle
+  due icone create dall'installazione. Per cambiarla basta sostituire il PNG:
+  il `.icns` è un derivato e non sta nel repository.
+- **Favicon** dello Studio, SVG in linea nella pagina: niente file in più da
+  servire e resta nitida a ogni dimensione.
+
+### Nota sulla richiesta di estendere ad altri browser
+
+Firefox e Safari **non possono** ospitare la finestra dello Studio. La finestra
+senza schede né barra degli indirizzi si ottiene con il flag `--app`, che esiste
+solo nei browser derivati da Chromium. Firefox non ha un equivalente — `--kiosk`
+occupa tutto lo schermo, che è un'altra cosa — e Safari non espone alcun modo da
+riga di comando per aprirsi così. Resta il ripiego su Playwright, quindi nessun
+Mac resta senza finestra.
+
+Il **riquadro nel Dock** mentre lo Studio è aperto resta quello del browser che
+disegna la finestra: quel processo è suo, e cambiarne l'icona richiederebbe un
+involucro nativo (Electron o simili) — molti megabyte e un'altra categoria di
+manutenzione, per un guadagno solo estetico.
+
+---
+
+## [0.5.4] — 2026-09-16
+
+La finestra dedicata funzionava, ma in cima portava una barra nera: *«Chrome
+for Testing è riservato ai test automatici»*. Vera, e fuori posto in uno
+strumento che si mostra a un cliente.
+
+### Contesto
+
+Avevo riusato per la finestra lo stesso browser che esegue le analisi — la
+build che Playwright scarica. Quella build espone l'avviso di proposito, ed è
+giusto che lo faccia: non è pensata per navigarci. L'errore è stato mio, aver
+trattato come una cosa sola due funzioni diverse: *eseguire le analisi* e
+*mostrare l'interfaccia*.
+
+### Modificato
+
+- Le due cose sono ora separate. Le analisi continuano a girare sul browser di
+  Playwright, che è quello giusto: controllato, versione nota, riproducibile.
+  La finestra usa invece un **browser normale già installato** (Chrome, Edge,
+  Brave, Chromium, Vivaldi, nell'ordine), sempre con un profilo tutto suo che
+  non tocca quello personale.
+- **Un profilo per browser**, non uno condiviso: un profilo scritto da una
+  versione di Chrome non si riapre con una più vecchia, e cambiando browser la
+  finestra si rifiuterebbe di partire.
+- Se nessun browser normale è installato si ripiega su quello di Playwright con
+  `--test-type`, che riduce le barre di avviso. Una finestra con un avviso resta
+  meglio di nessuna finestra.
+
+---
+
+## [0.5.3] — 2026-09-16
+
+La 0.5.2 prometteva una finestra applicazione e in pratica apriva ancora una
+scheda di Chrome. Due cause diverse, stessa radice.
+
+### Contesto
+
+La prima: la logica della finestra l'avevo scritta **dentro il lanciatore
+dell'applicazione impacchettata**, mentre `avvia.command` — quello che parte
+dall'icona nella cartella del codice — era rimasto alla versione vecchia. Due
+modi di avviare lo stesso programma, uno solo aggiornato. È lo stesso errore
+strutturale del bit di esecuzione: una cosa scritta in due posti si scollega.
+
+La seconda: il lanciatore cercava Chromium **per percorso**, dentro la cartella
+di lavoro. Una cartella creata da una versione precedente ha i browser altrove,
+il percorso non trova niente, e si ripiega sul browser predefinito — cioè
+esattamente il comportamento che la versione doveva eliminare.
+
+### Corretto
+
+- **Come si apre lo Studio è scritto in un posto solo**, `avvia.command`. Il
+  lanciatore dell'applicazione ora ci si limita a delegare (`exec bash
+  avvia.command`) dopo aver preparato l'ambiente. I due percorsi non possono
+  più divergere.
+- **Il percorso del browser lo dichiara Playwright**, tramite
+  `chromium.executablePath()`, invece di essere ricostruito a mano. Cercarlo per
+  percorso si rompe appena cambia versione o cambia la posizione della cache.
+- Il controllo di «installazione completa» ora verifica **anche la presenza del
+  browser**, non solo dei componenti: una cartella di lavoro ereditata da una
+  versione precedente viene riportata in pari invece di partire monca.
+
+### Nota
+
+Se il browser dedicato davvero non c'è e non si riesce a scaricarlo, lo Studio
+si apre nel browser predefinito con un avviso esplicito. Una scheda in più è
+meglio di nessuna finestra — ma ora è una scelta dichiarata, non un silenzio.
+
+---
+
+## [0.5.2] — 2026-09-16
+
+L'applicazione c'era, ma apriva un Terminale che apriva un browser: tre cose
+sullo schermo per un programma solo, e la chiusura affidata a un `Ctrl+C` in una
+finestra nera che nessuno associa al programma che sta usando.
+
+### Modificato
+
+- **L'uso quotidiano non passa più dal Terminale.** L'applicazione avvia il
+  server in secondo piano e apre una finestra Chromium in *modalità
+  applicazione*: niente schede, niente barra degli indirizzi, icona propria nel
+  Dock. Chromium è quello che Playwright ha già scaricato per le analisi, quindi
+  il pacchetto non cresce di un byte, e gira su un profilo separato che non
+  tocca il Chrome personale di chi lo usa.
+- **La prima apertura continua a mostrare il Terminale**, di proposito: durante
+  i minuti dell'installazione è l'unico posto dove si vede che il programma sta
+  lavorando, e dove si legge l'errore se qualcosa va storto. Finita
+  l'installazione la finestra nera si congeda e riapre l'applicazione.
+
+### Aggiunto
+
+- Endpoint `POST /api/esci` e pulsante **Chiudi lo Studio** nell'interfaccia.
+  Senza Terminale non esiste più un `Ctrl+C`: la chiusura deve poterla chiedere
+  l'interfaccia. Il server ascolta solo su `127.0.0.1`, quindi la richiesta può
+  arrivare unicamente dalla stessa macchina.
+- `A11Y_STUDIO_NO_OPEN=1`: il server non apre il browser predefinito quando è
+  l'applicazione ad aprire la propria finestra. Senza questo si finiva con due
+  finestre sullo stesso indirizzo.
+
+### Corretto
+
+- Il titolo dell'interfaccia era un `<p>`: la pagina non aveva alcun `h1`.
+  Rilevato passando axe sullo Studio stesso — cosa che andava fatta prima, visto
+  di che strumento si tratta. Ora è un `h1` e le violazioni sono zero.
+- Il bordo del nuovo pulsante usava `--linea`, che sullo sfondo bianco sta a
+  1.3:1. Un contorno di comando deve arrivare a 3:1 (WCAG 1.4.11): sostituito
+  con un grigio a 3.03:1. `--linea` resta per separare, non per delimitare
+  qualcosa su cui si clicca.
+
+---
+
 ## [0.5.1] — 2026-09-16
 
 Primo avvio sul Mac di un collega: `EACCES, permission denied` su

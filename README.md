@@ -29,11 +29,19 @@ Nessun costo di licenza, nessun vincolo di apertura sul codice di questo motore.
 
 ## Avvio rapido
 
+Per chi lavora sul motore:
+
 ```bash
 npm install
 cp config.example.json config.mio-cliente.json   # poi editare
 npx tsx src/cli/index.ts audit config.mio-cliente.json
 ```
+
+Per chi conduce gli audit senza toccare il terminale c'è lo **Studio**
+(`npm run studio`, o l'icona *Avvia Studio* creata da `installa.command`), e per
+i colleghi il pacchetto autoconsistente: `bash scripts/crea-pacchetto.sh`
+produce `Studio accessibilita.app`, che contiene motore e Node.js e si installa
+da sola. Dettagli in [INSTALLAZIONE.md](INSTALLAZIONE.md).
 
 Output in `out/`: `dashboard.html`, `backlog.xlsx`, `run.json` (stato completo), `screenshots/`.
 
@@ -206,13 +214,15 @@ la prima pagina di ogni scansione viene visitata "a freddo", senza stato salvato
 
 ## Cosa manca per passare da POC a strumento
 
-In ordine di valore:
+Fatti nel frattempo: l'interfaccia (`src/studio/`), la coda di revisione per non
+esperti, e la distribuzione come applicazione. Resta aperto, in ordine di
+valore:
 
-1. **Interfaccia web** — oggi è una CLI. Serve una UI per configurare i progetti, lanciare le scansioni, sfogliare i risultati e gestire la coda di revisione umana (che è il vero collo di bottiglia operativo).
-2. **Persistenza e storico** — oggi lo stato è un `run.json` per progetto. Servono database, confronto fra scansioni successive (*questo difetto è nuovo o è il solito?*) e tracciamento della remediation nel tempo.
-3. **Scansioni schedulate** — verifica periodica dell'ecosistema, con avviso sulle regressioni.
-4. **Autenticazione** — per auditare le aree riservate (intranet, segreteria online) serve gestire il login.
-5. **Coda di revisione per non esperti** — l'interfaccia che mostra al designer screenshot, domanda chiusa e risposta sì/no, senza mai nominare un criterio WCAG. È il pezzo che rende il processo delegabile.
+1. **Persistenza e storico** — oggi lo stato è un `run.json` per progetto. Servono database, confronto fra scansioni successive (*questo difetto è nuovo o è il solito?*) e tracciamento della remediation nel tempo.
+2. **Documento di restituzione** in stile Hinto, generato dai dati dell'analisi.
+3. **Copertura di test sulla parte macOS** — la suite verifica il motore; lo Studio, l'applicazione, le icone e l'installazione si provano solo a mano su un Mac. È la parte che ha prodotto più errori nelle ultime versioni.
+4. **Scansioni schedulate** — verifica periodica dell'ecosistema, con avviso sulle regressioni.
+5. **Autenticazione** — per auditare le aree riservate (intranet, segreteria online) serve gestire il login.
 6. **Ampliamento del catalogo** — `axeRules.it.ts` copre le regole più frequenti; quelle scoperte sul campo vanno aggiunte. Un'osservazione che compare in inglese nel report è il segnale.
 
 ## I due siti di prova

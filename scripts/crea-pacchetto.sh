@@ -95,28 +95,103 @@ echo "  ✓ codice copiato"
 # installazione dura qualche minuto.
 cat > "$APP/Contents/MacOS/studio" <<'LANCIATORE'
 #!/bin/bash
+# Punto d'ingresso dell'applicazione: quello che parte al doppio clic.
 RISORSE="$(cd "$(dirname "$0")/../Resources" && pwd)"
-open -a Terminal "$RISORSE/esegui.command"
+
+# Due cartelle, due scopi.
+#
+# MOTORE tiene il codice e le dipendenze. E' roba di sistema: sta in Libreria,
+# dove macOS mette le cose che i programmi gestiscono da soli, e nessuno la
+# apre mai.
+#
+# DATI tiene i progetti e i risultati. Sta in Documenti, si apre nel Finder, e
+# deve contenere le cose di chi lavora e nient'altro: e' la differenza fra una
+# cartella di lavoro e una cartella di installazione.
+MOTORE="$HOME/Library/Application Support/Studio accessibilita"
+DATI="$HOME/Documents/Studio accessibilita"
+
+export PATH="$RISORSE/node/bin:$PATH"
+
+# Tutto quello che si scarica finisce dentro MOTORE, non nelle cartelle
+# condivise dell'utente. Motivo osservato sul campo: su un Mac dove in passato
+# qualcuno ha lanciato npm con sudo, ~/.npm appartiene a root e l'installazione
+# muore con "permission denied" senza che l'utente abbia modo di accorgersene o
+# di rimediare. Con una cache tutta nostra il problema non si pone, e
+# disinstallare vuol dire cancellare due cartelle.
+export npm_config_cache="$MOTORE/.npm-cache"
+export npm_config_audit=false
+export npm_config_fund=false
+export npm_config_update_notifier=false
+export PLAYWRIGHT_BROWSERS_PATH="$MOTORE/.browser"
+export A11Y_DATI="$DATI"
+
+# Vero quando il motore e' installato per davvero: non basta che la cartella
+# esista, un'installazione interrotta a meta' ne lascia una parziale.
+motore_pronto() {
+  [ -x "$MOTORE/node_modules/.bin/tsx" ] || return 1
+  local b
+  b=$(cd "$MOTORE" && node -e "try{process.stdout.write(require('playwright').chromium.executablePath())}catch(e){}" 2>/dev/null)
+  [ -x "$b" ]
+}
+
+# Prima apertura, o installazione rimasta a meta': si passa dalla finestra di
+# Terminale. E' l'unico posto dove chi apre il programma vede che sta lavorando
+# durante i minuti dell'installazione, e legge il messaggio se qualcosa va
+# storto. Dalle aperture successive il Terminale non compare piu'.
+if ! motore_pronto; then
+  open -a Terminal "$RISORSE/esegui.command"
+  exit 0
+fi
+
+mkdir -p "$DATI"
+rsync -a --exclude 'node_modules' "$RISORSE/payload/" "$MOTORE/" 2>/dev/null
+cd "$MOTORE" || exit 1
+
+# Come si apre lo Studio e' scritto una volta sola, in avvia.command: qui lo si
+# esegue e basta. Senza Terminale: questa e' l'apertura di tutti i giorni.
+exec bash avvia.command
 LANCIATORE
 
 cat > "$APP/Contents/Resources/esegui.command" <<'ESEGUI'
 #!/bin/bash
-# Cuore dell'applicazione: prepara la cartella di lavoro e avvia lo Studio.
+# Cuore dell'applicazione: installa quello che manca e poi si toglie di mezzo.
 RISORSE="$(cd "$(dirname "$0")" && pwd)"
-LAVORO="$HOME/Documents/Studio accessibilita"
+
+# Due cartelle, due scopi.
+#
+# MOTORE tiene il codice e le dipendenze. E' roba di sistema: sta in Libreria,
+# dove macOS mette le cose che i programmi gestiscono da soli, e nessuno la
+# apre mai.
+#
+# DATI tiene i progetti e i risultati. Sta in Documenti, si apre nel Finder, e
+# deve contenere le cose di chi lavora e nient'altro: e' la differenza fra una
+# cartella di lavoro e una cartella di installazione.
+MOTORE="$HOME/Library/Application Support/Studio accessibilita"
+DATI="$HOME/Documents/Studio accessibilita"
+
 export PATH="$RISORSE/node/bin:$PATH"
 
-# Tutto quello che si scarica finisce dentro la cartella di lavoro, non nelle
-# cartelle condivise dell'utente. Motivo osservato sul campo: su un Mac dove
-# in passato qualcuno ha lanciato npm con sudo, ~/.npm appartiene a root e
-# l'installazione muore con "permission denied" senza che l'utente abbia modo
-# di accorgersene o di rimediare. Con una cache tutta nostra il problema non
-# si pone, e disinstallare vuol dire cancellare una cartella.
-export npm_config_cache="$LAVORO/.npm-cache"
+# Tutto quello che si scarica finisce dentro MOTORE, non nelle cartelle
+# condivise dell'utente. Motivo osservato sul campo: su un Mac dove in passato
+# qualcuno ha lanciato npm con sudo, ~/.npm appartiene a root e l'installazione
+# muore con "permission denied" senza che l'utente abbia modo di accorgersene o
+# di rimediare. Con una cache tutta nostra il problema non si pone, e
+# disinstallare vuol dire cancellare due cartelle.
+export npm_config_cache="$MOTORE/.npm-cache"
 export npm_config_audit=false
 export npm_config_fund=false
 export npm_config_update_notifier=false
-export PLAYWRIGHT_BROWSERS_PATH="$LAVORO/.browser"
+export PLAYWRIGHT_BROWSERS_PATH="$MOTORE/.browser"
+export A11Y_DATI="$DATI"
+
+# Vero quando il motore e' installato per davvero: non basta che la cartella
+# esista, un'installazione interrotta a meta' ne lascia una parziale.
+motore_pronto() {
+  [ -x "$MOTORE/node_modules/.bin/tsx" ] || return 1
+  local b
+  b=$(cd "$MOTORE" && node -e "try{process.stdout.write(require('playwright').chromium.executablePath())}catch(e){}" 2>/dev/null)
+  [ -x "$b" ]
+}
 
 echo ""
 echo "  ┌──────────────────────────────────────────────┐"
@@ -131,28 +206,34 @@ chiudi() {
   exit "${1:-0}"
 }
 
-# La cartella di lavoro sta in Documenti e non dentro l'applicazione: e' li'
-# che finiscono le analisi, e deve restare raggiungibile anche se un domani
-# l'app viene sostituita con una versione nuova.
-if [ ! -d "$LAVORO" ]; then
-  echo "  Prima apertura: preparo la cartella di lavoro in"
-  echo "  Documenti/Studio accessibilita"
+mkdir -p "$DATI" "$MOTORE" || { echo "  ✗ Non riesco a creare le cartelle."; chiudi 1; }
+
+# Chi arriva da una versione precedente ha il codice mescolato ai propri
+# progetti dentro Documenti. Non si cancella niente: si sposta da parte, e
+# glielo si dice.
+if [ -d "$DATI/src" ]; then
+  echo "  Riordino la cartella di lavoro: i file di sistema della versione"
+  echo "  precedente vanno da parte, i tuoi progetti restano dove sono."
   echo ""
-  mkdir -p "$LAVORO" || { echo "  ✗ Non riesco a creare la cartella."; chiudi 1; }
+  VECCHIO="$DATI/_motore-precedente"
+  mkdir -p "$VECCHIO"
+  for v in src scripts fixtures test docs prompts assets node_modules \
+           package.json package-lock.json tsconfig.json README.md CHANGELOG.md \
+           NOTICE.md INSTALLAZIONE.md avvia.command installa.command setup.sh \
+           config.example.json config.fixture.json config.hinto.json \
+           config.react.json studio.log; do
+    [ -e "$DATI/$v" ] && mv "$DATI/$v" "$VECCHIO/" 2>/dev/null
+  done
+  # queste invece si recuperano: sono i megabyte gia' scaricati
+  for h in .browser .npm-cache; do
+    if [ -d "$DATI/$h" ] && [ ! -d "$MOTORE/$h" ]; then mv "$DATI/$h" "$MOTORE/" 2>/dev/null; fi
+  done
 fi
 
-# Il codice viene riallineato a ogni avvio: cosi' aggiornare significa
-# sostituire l'applicazione, senza toccare le analisi gia' fatte.
-rsync -a --exclude 'node_modules' --exclude 'out' --exclude 'out-*' \
-  "$RISORSE/payload/" "$LAVORO/" 2>/dev/null
+rsync -a --exclude 'node_modules' "$RISORSE/payload/" "$MOTORE/" 2>/dev/null
+cd "$MOTORE" || { echo "  ✗ Non riesco ad aprire la cartella del motore."; chiudi 1; }
 
-cd "$LAVORO" || { echo "  ✗ Non riesco ad aprire la cartella di lavoro."; chiudi 1; }
-
-# Non basta che node_modules esista: un'installazione interrotta a meta' ne
-# lascia uno parziale, e ripartire da li' significa avviare qualcosa che si
-# rompe piu' avanti. Il test e' sul programma che serve davvero ad avviare lo
-# Studio.
-if [ ! -x node_modules/.bin/tsx ] || [ package.json -nt node_modules ]; then
+if ! motore_pronto || [ package.json -nt node_modules ]; then
   echo "  → Installo i componenti necessari. Qualche minuto, una volta sola."
   echo ""
   npm install --no-audit --no-fund --loglevel=error || {
@@ -178,15 +259,31 @@ if [ ! -x node_modules/.bin/tsx ] || [ package.json -nt node_modules ]; then
   }
   touch node_modules
   echo ""
-  echo "  ✓ Tutto pronto. Le prossime aperture saranno immediate."
+  echo "  ✓ Tutto pronto. Le prossime aperture saranno immediate:"
+  echo "    doppio clic sull'applicazione, e basta."
 fi
 
+if [ -d "$DATI/_motore-precedente" ]; then
+  echo ""
+  echo "  Nota: in Documenti/Studio accessibilita trovi una cartella"
+  echo "  _motore-precedente con i file della versione vecchia."
+  echo "  Puoi cancellarla quando vuoi."
+fi
+
+# Da qui in poi il lavoro lo fa la finestra dell'applicazione: questa finestra
+# di Terminale serviva solo all'installazione e si toglie di mezzo.
+APPLICAZIONE="$(cd "$RISORSE/../.." && pwd)"
 echo ""
-echo "  Avvio lo Studio: si apre da solo nel browser."
-echo "  Per chiudere: torna in questa finestra e premi Ctrl+C."
+echo "  Apro lo Studio nella sua finestra."
+echo "  Questa finestra la puoi chiudere."
 echo ""
-npm run studio
-chiudi 0
+if open "$APPLICAZIONE" 2>/dev/null; then
+  exit 0
+fi
+
+echo "  (apertura della finestra non riuscita: proseguo da qui)"
+echo ""
+exec bash avvia.command
 ESEGUI
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -206,6 +303,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<string>$VERSIONE</string>
 	<key>CFBundleExecutable</key>
 	<string>studio</string>
+	<key>CFBundleIconFile</key>
+	<string>icona</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>LSMinimumSystemVersion</key>
@@ -218,6 +317,16 @@ PLIST
 
 chmod +x "$APP/Contents/MacOS/studio" "$APP/Contents/Resources/esegui.command" \
   || fallisci "Non riesco a impostare i permessi di esecuzione."
+
+# --- 3bis. L'icona ------------------------------------------------------
+if bash scripts/crea-icona.sh && [ -f assets/icona.icns ]; then
+  cp assets/icona.icns "$APP/Contents/Resources/icona.icns"
+  echo "  ✓ icona applicata"
+else
+  # Senza icona l'app funziona lo stesso, con quella generica di sistema.
+  sed -i '' '/<key>CFBundleIconFile<\/key>/,+1d' "$APP/Contents/Info.plist" 2>/dev/null
+  echo "  ! icona non generata: l'app usera' quella generica"
+fi
 
 # --- 4. L'archivio -----------------------------------------------------
 # ditto, non zip: conserva i permessi di esecuzione e i metadati del bundle.

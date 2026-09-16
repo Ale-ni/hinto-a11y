@@ -1,6 +1,6 @@
 # Stato del progetto
 
-Aggiornato al 15 settembre 2026 · motore v0.3.4
+Aggiornato al 16 settembre 2026 · motore v0.6.0
 
 Questo file risponde a una domanda sola: **se riprendo in mano il progetto fra
 tre mesi, o se lo passo a qualcun altro, cosa devo sapere per non ricominciare
@@ -62,6 +62,21 @@ criterio consente in automatico.
 
 ## Come si lavora
 
+Ci sono tre modi di entrare, in ordine di quanto chiedono a chi li usa.
+
+**1. L'applicazione** — `Studio accessibilita.app`, per i colleghi. Contiene il
+codice e Node.js, si installa da sola alla prima apertura e non chiede nulla.
+Si costruisce sul proprio Mac con l'icona **Prepara pacchetto** (o
+`bash scripts/crea-pacchetto.sh`) e si consegna come allegato a una Release di
+GitHub — non via Drive o come allegato di posta, dove i filtri aziendali la
+bloccano.
+
+**2. Lo Studio dal repository** — `npm run studio`, oppure l'icona
+**Avvia Studio** creata da `installa.command`. Stessa interfaccia, codice vivo.
+
+**3. La riga di comando** — quello che segue. È la strada di chi lavora sul
+motore.
+
 ```bash
 npm install
 npx playwright install chromium
@@ -109,9 +124,12 @@ dati sintetici e poi fatte pagare all'utente come scansione reale.
    (`confronto/griglia-confronto.xlsx`, generata da `npm run griglia`). Il
    protocollo è nel foglio Istruzioni: analisi manuale in cieco **prima**,
    confronto dopo. È il passo che dice se lo strumento regge.
-2. **Interfaccia per chi non usa il terminale.** Due designer devono diventare
-   autonomi senza diventare sviluppatori.
-3. **Documento di restituzione** in stile Hinto, generato dai dati dell'analisi.
+2. **Documento di restituzione** in stile Hinto, generato dai dati dell'analisi.
+3. **Nessun test automatico copre lo Studio e il pacchetto.** La suite verifica
+   il motore; l'interfaccia è stata controllata con axe (zero violazioni) ma a
+   mano, e tutta la parte macOS — app, icone, finestra, installazione — si
+   verifica solo aprendola su un Mac. È la parte che nelle ultime versioni ha
+   prodotto più errori, ed è anche l'unica senza rete di sicurezza.
 4. **Residui noti sull'ultima scansione**: 4 gruppi di finding ancora duplicati
    per via degli id costruiti dal CMS (corretto nella 0.3.1, da verificare alla
    prossima scansione); 477 evidenze `axe-incomplete:color-contrast` su testo
@@ -128,6 +146,14 @@ dati sintetici e poi fatte pagare all'utente come scansione reale.
   chat. Le scansioni girano dove c'è accesso di rete al sito del cliente.
 - **I risultati non vanno in repository**: contengono URL, screenshot e talvolta
   contenuti dei clienti. Il `.gitignore` li esclude già.
+- **Codice e dati stanno in due posti diversi** (0.6.0): il codice dove è
+  installato, i progetti in `Documenti/Studio accessibilita`. La variabile
+  `A11Y_DATI` decide la seconda; se non è impostata coincidono, ed è il caso di
+  chi lavora nel repository.
+- **Il caricamento web di GitHub azzera il permesso di esecuzione.** Vale per
+  ogni `.command` e per l'app: è il motivo per cui il pacchetto si costruisce
+  sul Mac e si pubblica come allegato a una Release, non come ZIP del
+  repository.
 - **AgID, determinazione n. 38 del 4 marzo 2026, sezione 5.1**: gli overlay che
   non tracciano le tecnologie assistive sono sotto osservazione. Riguarda
   direttamente UserWay, che è parte dello scenario venduto a UniVR. Da

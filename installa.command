@@ -100,7 +100,17 @@ APPLESCRIPT
   return 1
 }
 
+# L'icona: osacompile ne mette una generica da AppleScript, che non dice niente
+# a chi apre la cartella. Se riusciamo a costruire la nostra, la sostituiamo.
+bash scripts/crea-icona.sh 2>/dev/null
+vesti_app() {
+  [ -f assets/icona.icns ] || return 0
+  cp assets/icona.icns "$1.app/Contents/Resources/applet.icns" 2>/dev/null
+  touch "$1.app" 2>/dev/null
+}
+
 if crea_app "Avvia Studio" "bash avvia.command"; then
+  vesti_app "Avvia Studio"
   AVVIO_PRONTO=1
   echo "  ✓ icona «Avvia Studio» creata nella cartella"
 else
@@ -110,6 +120,7 @@ fi
 
 # Serve solo a chi distribuisce lo strumento, non a chi lo usa.
 if crea_app "Prepara pacchetto" "bash scripts/crea-pacchetto.sh"; then
+  vesti_app "Prepara pacchetto"
   echo "  ✓ icona «Prepara pacchetto» creata (serve per dare lo strumento a un collega)"
 fi
 

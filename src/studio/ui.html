@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Studio accessibilità — Hinto</title>
+<!-- Icona della finestra: SVG in linea, cosi' non c'e' un file in piu' da
+     servire e resta nitida a qualunque dimensione. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%23633beb'/%3E%3Ccircle%20cx='32'%20cy='32'%20r='22.5'%20fill='none'%20stroke='%23ffffff'%20stroke-width='4'/%3E%3Ccircle%20cx='32'%20cy='19'%20r='3.6'%20fill='%23ffffff'/%3E%3Cpath%20d='M20.8%2027.2h22.4M32%2027.2l-6.1%2015.4M32%2027.2l6.1%2015.4'%20fill='none'%20stroke='%23ffffff'%20stroke-width='3.6'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">
 <!--
   Questa interfaccia e' lo strumento con cui si conducono audit di
   accessibilita'. Se non fosse essa stessa accessibile sarebbe una barzelletta,
@@ -49,6 +52,19 @@
   .marchio span { font-weight: 400; color: var(--tenue); }
   .progetto-attivo { margin-left: auto; font-size: 14px; color: var(--tenue); }
   .progetto-attivo strong { color: var(--inchiostro); }
+
+  /* Il bordo e' #8d95a0 e non var(--linea): un contorno di comando deve
+     arrivare a 3:1 sullo sfondo (WCAG 1.4.11), e --linea si ferma a 1.3:1.
+     Va bene per separare, non per delimitare qualcosa su cui si clicca. */
+  .esci {
+    appearance: none; background: none; border: 1px solid #8d95a0;
+    border-radius: 6px; padding: 6px 12px; font: inherit; font-size: 13px;
+    color: var(--tenue); cursor: pointer; align-self: center;
+  }
+  .esci:hover:not(:disabled) { color: var(--inchiostro); border-color: var(--tenue); }
+  .esci:disabled { cursor: default; opacity: .6; }
+  .congedo { padding: 48px 22px; max-width: 46em; }
+  .congedo h1 { font-size: 20px; margin: 0 0 8px; }
 
   [role="tablist"] {
     display: flex; gap: 4px; padding: 0 22px; background: var(--carta);
@@ -158,8 +174,9 @@
 <a class="salta" href="#principale">Vai al contenuto</a>
 
 <header class="testata">
-  <p class="marchio">Studio accessibilità <span>· Hinto</span></p>
+  <h1 class="marchio">Studio accessibilità <span>· Hinto</span></h1>
   <p class="progetto-attivo" id="progetto-attivo"></p>
+  <button type="button" id="esci" class="esci">Chiudi lo Studio</button>
 </header>
 
 <nav aria-label="Fasi del lavoro">
@@ -386,6 +403,26 @@
 
   $('#btn-ferma').addEventListener('click', () =>
     fetch('/api/ferma', { method: 'POST' }));
+
+  /**
+   * Chiusura dello Studio dall'interfaccia. Serve quando gira dentro una
+   * finestra applicazione: li' non esiste un Terminale in cui premere Ctrl+C,
+   * e senza questo pulsante il programma resterebbe acceso a insaputa di chi
+   * lo usa.
+   */
+  $('#esci').addEventListener('click', async () => {
+    const b = $('#esci');
+    b.disabled = true;
+    b.textContent = 'Chiudo…';
+    try { await fetch('/api/esci', { method: 'POST' }); } catch { /* il server e' gia' sceso */ }
+    document.body.innerHTML =
+      '<main id="principale" class="congedo">' +
+      '<h1 tabindex="-1" id="congedo">Studio chiuso.</h1>' +
+      '<p>Puoi chiudere questa finestra. Per riaprirlo, apri di nuovo l\'applicazione.</p>' +
+      '</main>';
+    document.getElementById('congedo').focus();
+    setTimeout(() => window.close(), 300);
+  });
 
   /**
    * Il registro NON e' un'area annunciata: scorre troppo in fretta e un lettore

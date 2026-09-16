@@ -19,14 +19,29 @@
  * Uso:  npm run studio          (poi si apre da solo su http://127.0.0.1:4173)
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const QUI = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Due radici distinte, ed e' una distinzione che vale la pena tenere netta.
+ *
+ * RADICE e' dove sta il CODICE: sorgenti, dipendenze, file di esempio. Si
+ * aggiorna sostituendola, e nessuno ci deve mettere niente a mano.
+ *
+ * DATI e' dove stanno i PROGETTI e i RISULTATI di chi lavora: i `config.*.json`
+ * dei clienti, le cartelle `out-*`, le revisioni. E' la cartella che l'utente
+ * apre nel Finder, e per questo deve contenere le sue cose e nient'altro.
+ *
+ * Quando non e' indicato nulla le due coincidono - e' il caso di chi lavora
+ * dentro il repository, dove la separazione non serve.
+ */
 const RADICE = path.resolve(QUI, '..', '..');
+const DATI = path.resolve(process.env.A11Y_DATI ?? RADICE);
 const PORTA = Number(process.env.A11Y_STUDIO_PORT ?? 4173);
 
 /* ------------------------------------------------------------------ *
@@ -79,10 +94,21 @@ function registraRiga(lavoro: Lavoro, riga: string): void {
 }
 
 function avvia(configFile: string, argomenti: string[], etichetta: string): Lavoro {
+  /*
+   * Il comando vive in RADICE, ma gira in DATI: il file di configurazione e la
+   * cartella dei risultati sono relativi a dove lavora l'utente, non a dove sta
+   * il codice. Si passa il percorso assoluto di tsx invece di `npx` perche'
+   * `npx` cerca i pacchetti a partire dalla cartella corrente, che qui non e'
+   * piu' quella del progetto.
+   */
+  const tsx = path.join(RADICE, 'node_modules', '.bin', 'tsx');
+  const cli = path.join(RADICE, 'src', 'cli', 'index.ts');
+  const [comando, testa] = existsSync(tsx) ? [tsx, [cli]] : ['npx', ['tsx', cli]];
+
   const processo = spawn(
-    'npx',
-    ['tsx', 'src/cli/index.ts', ...argomenti, configFile],
-    { cwd: RADICE, env: { ...process.env, FORCE_COLOR: '0' } },
+    comando,
+    [...testa, ...argomenti, configFile],
+    { cwd: DATI, env: { ...process.env, FORCE_COLOR: '0' } },
   );
 
   const lavoro: Lavoro = {
@@ -133,12 +159,12 @@ interface Progetto {
 }
 
 async function elencaProgetti(): Promise<Progetto[]> {
-  const voci = await readdir(RADICE);
+  const voci = await readdir(DATI);
   const out: Progetto[] = [];
   for (const v of voci) {
     if (!v.startsWith('config.') || !v.endsWith('.json')) continue;
     try {
-      const cfg = JSON.parse(await readFile(path.join(RADICE, v), 'utf8'));
+      const cfg = JSON.parse(await readFile(path.join(DATI, v), 'utf8'));
       if (!cfg.project || !Array.isArray(cfg.sites)) continue;
       const outDir = cfg.outDir ?? 'out';
       out.push({
@@ -149,7 +175,7 @@ async function elencaProgetti(): Promise<Progetto[]> {
           baseUrl: s.baseUrl,
         })),
         outDir,
-        esisteRisultato: await esiste(path.join(RADICE, outDir, 'run.json')),
+        esisteRisultato: await esiste(path.join(DATI, outDir, 'run.json')),
       });
     } catch {
       /* file di configurazione illeggibile: si salta, non e' un errore fatale */
@@ -185,7 +211,7 @@ function nomeFileConfig(nome: string): string {
 
 async function leggiRun(outDir: string): Promise<any | null> {
   try {
-    return JSON.parse(await readFile(path.join(RADICE, outDir, 'run.json'), 'utf8'));
+    return JSON.parse(await readFile(path.join(DATI, outDir, 'run.json'), 'utf8'));
   } catch {
     return null;
   }
@@ -245,7 +271,7 @@ async function trovaImmagine(relativo: string, outDir: string): Promise<boolean>
   const nomeBase = path.basename(outDir);
   const senza = relativo.startsWith(nomeBase + '/') ? relativo.slice(nomeBase.length + 1) : relativo;
   for (const c of [relativo, path.join(outDir, senza), path.join(outDir, relativo)]) {
-    if (await esiste(path.resolve(RADICE, c))) return true;
+    if (await esiste(path.resolve(DATI, c))) return true;
   }
   return false;
 }
@@ -257,7 +283,7 @@ async function salvaRevisione(
   nota: string,
   revisore: string,
 ): Promise<{ ok: boolean; rimasti: number }> {
-  const file = path.join(RADICE, outDir, 'run.json');
+  const file = path.join(DATI, outDir, 'run.json');
   const run = JSON.parse(await readFile(file, 'utf8'));
   const f = run.findings.find((x: any) => x.id === findingId);
   if (!f) return { ok: false, rimasti: 0 };
@@ -342,8 +368,8 @@ async function serviFile(
   }
 
   for (const c of candidati) {
-    const assoluto = path.resolve(RADICE, c);
-    if (!assoluto.startsWith(RADICE + path.sep)) continue;
+    const assoluto = path.resolve(DATI, c);
+    if (!assoluto.startsWith(DATI + path.sep)) continue;
     if (!(await esiste(assoluto))) continue;
     res.writeHead(200, {
       'content-type': TIPI[path.extname(assoluto)] ?? 'application/octet-stream',
@@ -364,6 +390,20 @@ const server = http.createServer(async (req, res) => {
       const html = await readFile(path.join(QUI, 'ui.html'), 'utf8');
       res.writeHead(200, { 'content-type': TIPI['.html'] });
       res.end(html);
+      return;
+    }
+
+    /* --- chiusura ---
+     * Quando lo Studio gira dentro una finestra applicazione non c'e' nessun
+     * Terminale in cui premere Ctrl+C: la chiusura deve poterla chiedere
+     * l'interfaccia. Il server ascolta solo su 127.0.0.1, quindi la richiesta
+     * puo' arrivare unicamente da questa macchina. */
+    if (p === '/api/esci' && req.method === 'POST') {
+      json(res, { ok: true });
+      setTimeout(() => {
+        server.close();
+        process.exit(0);
+      }, 150);
       return;
     }
 
@@ -412,7 +452,7 @@ const server = http.createServer(async (req, res) => {
         scan: {},
         triage: { adapter: 'none' },
       };
-      await writeFile(path.join(RADICE, file), JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+      await writeFile(path.join(DATI, file), JSON.stringify(cfg, null, 2) + '\n', 'utf8');
       json(res, { file, progetto: cfg.project });
       return;
     }
@@ -528,8 +568,8 @@ const server = http.createServer(async (req, res) => {
         riviste: run.findings.filter((f: any) => f.humanReview).length,
         dashboard: `${outDir}/dashboard.html`,
         backlog: `${outDir}/backlog.xlsx`,
-        haDashboard: await esiste(path.join(RADICE, outDir, 'dashboard.html')),
-        haBacklog: await esiste(path.join(RADICE, outDir, 'backlog.xlsx')),
+        haDashboard: await esiste(path.join(DATI, outDir, 'dashboard.html')),
+        haBacklog: await esiste(path.join(DATI, outDir, 'backlog.xlsx')),
       });
       return;
     }
@@ -581,6 +621,10 @@ server.listen(PORTA, '127.0.0.1', () => {
   console.log(`\n  Studio accessibilità Hinto`);
   console.log(`  aperto su ${indirizzo}`);
   console.log(`  (per chiudere: Ctrl+C in questa finestra)\n`);
+  // Quando lo Studio viene avviato dall'applicazione, e' l'applicazione ad
+  // aprire la propria finestra: qui non si apre niente, altrimenti l'utente si
+  // ritroverebbe due finestre sullo stesso indirizzo.
+  if (process.env.A11Y_STUDIO_NO_OPEN === '1') return;
   // su macOS si apre da solo: e' il passaggio che fa risparmiare la spiegazione
   spawn('open', [indirizzo], { stdio: 'ignore' }).on('error', () => {
     /* su altri sistemi si apre a mano: l'indirizzo e' scritto qui sopra */
